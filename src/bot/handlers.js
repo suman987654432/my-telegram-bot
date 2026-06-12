@@ -94,6 +94,12 @@ const handleMessage = async (bot, msg) => {
 
     // 6. Verification Captcha Check
     if (!user.verified) {
+      if (settings.deviceVerify === false) {
+        // Automatically verify user
+        await userService.verifyUser(bot, telegramId);
+        return bot.sendMessage(msg.chat.id, `👋 *Welcome, ${user.firstName}!*\n\n🎉 All channels joined & account verified!\n\nUse the main menu buttons below to navigate the bot.`, getMainMenuKeyboard(isAdmin(telegramId)));
+      }
+
       if (!user.verificationToken) {
         user.verificationToken = crypto.randomBytes(16).toString('hex');
         await user.save();
@@ -121,6 +127,13 @@ const handleMessage = async (bot, msg) => {
 
     // 7. Route Command based on reply buttons or standard text
     switch (text) {
+      case '⚙️ Admin Panel':
+        if (isAdmin(telegramId)) {
+          const { sendAdminDashboard } = require('./admin');
+          return sendAdminDashboard(bot, msg.chat.id);
+        }
+        break;
+
       case '🔗 My Referral Link':
         return sendReferralLink(bot, msg.chat.id, user);
 
@@ -139,15 +152,15 @@ const handleMessage = async (bot, msg) => {
       default:
         // Default text for start/help
         if (text.startsWith('/start')) {
-          return bot.sendMessage(msg.chat.id, `👋 *Welcome back, ${user.firstName}!*\n\n🎉 All channels joined & account verified!\n\nUse the main menu buttons below to navigate the bot.`, getMainMenuKeyboard());
+          return bot.sendMessage(msg.chat.id, `👋 *Welcome back, ${user.firstName}!*\n\n🎉 All channels joined & account verified!\n\nUse the main menu buttons below to navigate the bot.`, getMainMenuKeyboard(isAdmin(telegramId)));
         }
 
         // Admin instructions if user is admin
         if (isAdmin(telegramId)) {
-          return bot.sendMessage(msg.chat.id, `ℹ️ Unknown command. Type \`/admin\` to open the Admin Panel or use the menu below.`, getMainMenuKeyboard());
+          return bot.sendMessage(msg.chat.id, `ℹ️ Unknown command. Type \`/admin\` to open the Admin Panel or use the menu below.`, getMainMenuKeyboard(isAdmin(telegramId)));
         }
 
-        return bot.sendMessage(msg.chat.id, `ℹ️ Please use the main menu buttons below to interact with the bot.`, getMainMenuKeyboard());
+        return bot.sendMessage(msg.chat.id, `ℹ️ Please use the main menu buttons below to interact with the bot.`, getMainMenuKeyboard(isAdmin(telegramId)));
     }
   } catch (err) {
     logger.error(`Error in handleMessage: ${err.message}`);

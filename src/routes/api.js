@@ -82,11 +82,12 @@ router.post('/api/verify', async (req, res) => {
     const userService = require('../services/user.service');
     const bot = require('../bot');
     const { getMainMenuKeyboard } = require('../keyboards/reply');
+    const { isAdmin } = require('../middleware/auth');
 
     await userService.verifyUser(bot, userId);
 
     // Notify user on Telegram
-    bot.sendMessage(userId, '✅ *Verification Successful!*\n\nWelcome back! You can now use the reply menu below to earn rewards.', getMainMenuKeyboard())
+    bot.sendMessage(userId, '✅ *Verification Successful!*\n\nWelcome back! You can now use the reply menu below to earn rewards.', getMainMenuKeyboard(isAdmin(userId)))
       .catch((err) => logger.error(`Failed to send web verification success message to ${userId}: ${err.message}`));
 
     bot.sendMessage(userId, '🔗 Tap "My Referral Link" to share and start earning!')

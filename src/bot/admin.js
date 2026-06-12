@@ -218,6 +218,12 @@ const sendAdminDashboard = async (bot, chatId) => {
     
     const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
 
+    let settings = await Settings.findOne({});
+    if (!settings) {
+      settings = new Settings({});
+      await settings.save();
+    }
+
     const response = `👑 *Best Offer Refer Bot — Admin Dashboard*\n\n` +
                      `👥 Total Users: *${totalUsers}*\n` +
                      `✅ Verified Users: *${verifiedUsers}*\n` +
@@ -231,7 +237,7 @@ const sendAdminDashboard = async (bot, chatId) => {
 
     return bot.sendMessage(chatId, response, {
       parse_mode: 'Markdown',
-      ...getAdminKeyboard()
+      ...getAdminKeyboard(settings)
     });
   } catch (err) {
     logger.error(`Dashboard rendering error: ${err.message}`);

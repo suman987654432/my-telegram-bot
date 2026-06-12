@@ -139,7 +139,11 @@ const getWithdrawKeyboard = (user, rewards, userClaims) => {
  * Returns the admin menu inline keyboard options.
  * @returns {object} - Inline keyboard markup
  */
-const getAdminKeyboard = () => {
+const getAdminKeyboard = (settings) => {
+  const deviceVerifyText = settings && settings.deviceVerify === false
+    ? '🔴 Device Verify: OFF — tap to enable'
+    : '🟢 Device Verify: ON — tap to disable';
+
   return {
     reply_markup: {
       inline_keyboard: [
@@ -153,6 +157,9 @@ const getAdminKeyboard = () => {
         ],
         [
           { text: '⚙️ Bot Settings', callback_data: 'admin_settings' }
+        ],
+        [
+          { text: deviceVerifyText, callback_data: 'admin_toggle_device_verify' }
         ]
       ]
     }

@@ -48,6 +48,7 @@ async function seedDatabase() {
         supportUsername: '@piyushpathak7',
         dailyClaimLimit: 5,
         botStatus: true,
+        deviceVerify: true,
       });
       await defaultSettings.save();
       logger.info('⚙️ Database Seeding: Created default global settings.');

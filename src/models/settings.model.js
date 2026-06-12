@@ -14,6 +14,10 @@ const settingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  deviceVerify: {
+    type: Boolean,
+    default: true,
+  },
   updatedAt: {
     type: Date,
     default: Date.now,

@@ -7,7 +7,7 @@ const userService = require('../services/user.service');
 const telegramService = require('../services/telegram.service');
 const claimService = require('../services/claim.service');
 const { getMainMenuKeyboard } = require('../keyboards/reply');
-const { getForceJoinKeyboard, getWithdrawKeyboard } = require('../keyboards/inline');
+const { getForceJoinKeyboard, getWithdrawKeyboard, getAdminKeyboard } = require('../keyboards/inline');
 const crypto = require('crypto');
 const config = require('../config');
 const admin = require('./admin');
@@ -43,9 +43,17 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
       await bot.answerCallbackQuery(queryId, { text: '✅ Channels verified!' });
 
       if (user.verified) {
-        await bot.sendMessage(message.chat.id, '✅ All channels joined!\n\n👋 Welcome back! You can use the menu below to navigate.', getMainMenuKeyboard());
+        await bot.sendMessage(message.chat.id, '✅ All channels joined!\n\n👋 Welcome back! You can use the menu below to navigate.', getMainMenuKeyboard(isAdmin(telegramId)));
         return bot.deleteMessage(message.chat.id, message.message_id).catch(() => { });
       } else {
+        // Fetch settings and check if device verification is enabled
+        const settings = await Settings.findOne({});
+        if (settings && settings.deviceVerify === false) {
+          await userService.verifyUser(bot, telegramId);
+          await bot.sendMessage(message.chat.id, '✅ All channels joined & account verified!\n\n👋 Welcome back! You can use the menu below to navigate.', getMainMenuKeyboard(isAdmin(telegramId)));
+          return bot.deleteMessage(message.chat.id, message.message_id).catch(() => { });
+        }
+
         // Trigger Web verification
         if (!user.verificationToken) {
           user.verificationToken = crypto.randomBytes(16).toString('hex');
@@ -217,6 +225,46 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
 
       // Sub-menu redirections
       switch (data) {
+        case 'admin_toggle_device_verify':
+          try {
+            let settings = await Settings.findOne({});
+            if (!settings) {
+              settings = new Settings({});
+            }
+            settings.deviceVerify = !settings.deviceVerify;
+            await settings.save();
+
+            // Refresh the admin dashboard inline keyboard
+            const totalUsers = await User.countDocuments({});
+            const verifiedUsers = await User.countDocuments({ verified: true });
+            const totalReferrals = await User.aggregate([
+              { $group: { _id: null, total: { $sum: '$referrals' } } }
+            ]);
+            const totalClaims = await Claim.countDocuments({});
+            const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
+
+            const response = `👑 *Best Offer Refer Bot — Admin Dashboard*\n\n` +
+                             `👥 Total Users: *${totalUsers}*\n` +
+                             `✅ Verified Users: *${verifiedUsers}*\n` +
+                             `📈 Total Referrals: *${referralCount}*\n` +
+                             `🎁 Total Claims: *${totalClaims}*\n\n` +
+                             `Use buttons below to navigate or run text commands like:\n` +
+                             `• \`/broadcast [message]\`\n` +
+                             `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
+                             `• \`/addreward [refs] [Title] - [Description]\`\n` +
+                             `• \`/pendingclaims\``;
+
+            await bot.editMessageText(response, {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              ...getAdminKeyboard(settings)
+            });
+          } catch (err) {
+            logger.error(`Error toggling device verify: ${err.message}`);
+          }
+          return;
+
         case 'admin_stats':
           return admin.sendDetailedStats(bot, message.chat.id);
         case 'admin_users':
