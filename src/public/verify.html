@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Verification — Telegram Bot</title>
+  <!-- Telegram WebApp JS SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+      --glass-bg: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --primary: #8b5cf6;
+      --primary-hover: #7c3aed;
+      --primary-glow: rgba(139, 92, 246, 0.4);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --error: #ef4444;
+      --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: var(--text);
+      overflow: hidden;
+      position: relative;
+      padding: 20px;
+    }
+
+    /* Ambient background glows */
+    .glow-circle {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      opacity: 0.15;
+    }
+    .glow-1 {
+      background: #8b5cf6;
+      top: 10%;
+      left: 10%;
+    }
+    .glow-2 {
+      background: #db2777;
+      bottom: 10%;
+      right: 10%;
+    }
+
+    .container {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 40px 30px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      z-index: 1;
+      transform: translateY(20px);
+      opacity: 0;
+      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes fadeInUp {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* Shield / Lock Icon */
+    .icon-container {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      margin: 0 auto 30px;
+      background: rgba(139, 92, 246, 0.1);
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+      transition: all 0.5s ease;
+    }
+
+    .icon-container svg {
+      width: 42px;
+      height: 42px;
+      fill: var(--primary);
+      transition: all 0.5s ease;
+    }
+
+    /* Pulse effect on load */
+    .icon-container::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      opacity: 0.4;
+      animation: pulse 2s infinite;
+      pointer-events: none;
+    }
+
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 0.4;
+      }
+      100% {
+        transform: scale(1.4);
+        opacity: 0;
+      }
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+      background: linear-gradient(to right, #f8fafc, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 35px;
+    }
+
+    /* Primary Action Button */
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 15px var(--primary-glow);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px var(--primary-glow);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top: 3px solid #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Status Card */
+    .status-card {
+      margin-top: 25px;
+      padding: 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      display: none;
+      text-align: center;
+      animation: fadeIn 0.4s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .status-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #34d399;
+    }
+
+    .status-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: #f87171;
+    }
+
+    /* Success Theme for Container */
+    .success-theme .icon-container {
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+    }
+    .success-theme .icon-container svg {
+      fill: var(--success);
+    }
+    .success-theme .icon-container::after {
+      border-color: var(--success);
+    }
+
+    /* Error Theme for Container */
+    .error-theme .icon-container {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.2);
+    }
+    .error-theme .icon-container svg {
+      fill: var(--error);
+    }
+    .error-theme .icon-container::after {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="glow-circle glow-1"></div>
+  <div class="glow-circle glow-2"></div>
+
+  <div class="container" id="container">
+    <div class="icon-container" id="iconBox">
+      <!-- Shield Lock SVG -->
+      <svg id="shieldIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+      </svg>
+    </div>
+
+    <h1 id="title">Security Check</h1>
+    <p id="desc">Click the button below to verify your account. This secures the referral program and registers your device.</p>
+
+    <button class="btn" id="verifyBtn">
+      <span class="spinner" id="spinner"></span>
+      <span id="btnText">Verify Account</span>
+    </button>
+
+    <div class="status-card" id="statusCard"></div>
+  </div>
+
+  <script>
+    // Initialize Telegram WebApp
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+
+    // Get query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('id');
+    const token = urlParams.get('token');
+
+    const container = document.getElementById('container');
+    const iconBox = document.getElementById('iconBox');
+    const shieldIcon = document.getElementById('shieldIcon');
+    const title = document.getElementById('title');
+    const desc = document.getElementById('desc');
+    const verifyBtn = document.getElementById('verifyBtn');
+    const btnText = document.getElementById('btnText');
+    const spinner = document.getElementById('spinner');
+    const statusCard = document.getElementById('statusCard');
+
+    // Basic validation
+    if (!userId || !token) {
+      verifyBtn.disabled = true;
+      showStatus('❌ Invalid Verification Link. Please request a new link from the Telegram bot.', 'error');
+    }
+
+    verifyBtn.addEventListener('click', async () => {
+      // Set loading state
+      verifyBtn.disabled = true;
+      spinner.style.display = 'block';
+      btnText.textContent = 'Verifying...';
+      statusCard.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userId, token })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          // Success state
+          container.classList.add('success-theme');
+          title.textContent = 'Verified!';
+          desc.textContent = 'Your account has been successfully verified. You can now close this page and return to the Telegram bot.';
+          
+          // Replace lock icon with checkmark SVG
+          iconBox.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="#10b981" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+            </svg>
+          `;
+          
+          verifyBtn.style.display = 'none';
+          showStatus('✅ Verification Successful! Closing window...', 'success');
+
+          // Smoothly close Telegram WebApp modal after 1.8 seconds
+          setTimeout(() => {
+            if (window.Telegram && window.Telegram.WebApp) {
+              window.Telegram.WebApp.close();
+            }
+          }, 1800);
+        } else {
+          // Failure state
+          container.classList.add('error-theme');
+          verifyBtn.disabled = false;
+          spinner.style.display = 'none';
+          btnText.textContent = 'Retry Verification';
+          
+          // Replace lock icon with warning cross SVG
+          iconBox.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="#ef4444" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+            </svg>
+          `;
+          
+          showStatus(result.error || '❌ Verification failed. Please try again.', 'error');
+        }
+      } catch (err) {
+        // Network error state
+        verifyBtn.disabled = false;
+        spinner.style.display = 'none';
+        btnText.textContent = 'Retry Verification';
+        showStatus('❌ Connection error. Please check your internet connection.', 'error');
+      }
+    });
+
+    function showStatus(message, type) {
+      statusCard.textContent = message;
+      statusCard.className = 'status-card';
+      
+      if (type === 'success') {
+        statusCard.classList.add('status-success');
+      } else {
+        statusCard.classList.add('status-error');
+      }
+      
+      statusCard.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
