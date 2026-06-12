@@ -147,20 +147,15 @@ const getAdminKeyboard = (settings) => {
   return {
     reply_markup: {
       inline_keyboard: [
-        [
-          { text: '📊 Full Stats', callback_data: 'admin_stats' },
-          { text: '👥 View Users', callback_data: 'admin_users' }
-        ],
-        [
-          { text: '⏳ Pending Claims', callback_data: 'admin_pending_claims' },
-          { text: '📬 Export CSV', callback_data: 'admin_export_csv' }
-        ],
-        [
-          { text: '⚙️ Bot Settings', callback_data: 'admin_settings' }
-        ],
-        [
-          { text: deviceVerifyText, callback_data: 'admin_toggle_device_verify' }
-        ]
+        [{ text: '📊 Stats', callback_data: 'admin_stats' }],
+        [{ text: '🎁 Manage Rewards', callback_data: 'admin_manage_rewards' }],
+        [{ text: '📥 Add Stock', callback_data: 'admin_add_stock' }],
+        [{ text: '📺 Manage Channels', callback_data: 'admin_manage_channels' }],
+        [{ text: '📢 Broadcast: Verified Only', callback_data: 'admin_broadcast_verified' }],
+        [{ text: '📢 Broadcast: All Users', callback_data: 'admin_broadcast_all' }],
+        [{ text: '📢 Broadcast: Non-Verified Only', callback_data: 'admin_broadcast_unverified' }],
+        [{ text: '⚙️ Settings', callback_data: 'admin_settings' }],
+        [{ text: deviceVerifyText, callback_data: 'admin_toggle_device_verify' }]
       ]
     }
   };

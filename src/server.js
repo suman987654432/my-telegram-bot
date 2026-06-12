@@ -9,6 +9,9 @@ const Settings = require('./models/settings.model');
 
 const app = express();
 
+// Trust reverse proxy headers (Render, Heroku, Cloudflare, etc.)
+app.set('trust proxy', true);
+
 // 1. Connect to MongoDB
 connectDB().then(() => {
   // Database Seeding Logic

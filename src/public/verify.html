@@ -288,6 +288,91 @@
   </div>
 
   <script>
+    // Helper to hash a string to a unique 32-bit integer
+    function cyrb128(str) {
+        let h1 = 1779033703, h2 = 3024733165, h3 = 3362453659, h4 = 2335624276;
+        for (let i = 0, k; i < str.length; i++) {
+            k = str.charCodeAt(i);
+            h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+            h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+            h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+            h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+        }
+        h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+        h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+        h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+        h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+        return (h1^h2^h3^h4)>>>0;
+    }
+
+    // Advanced device fingerprinting using canvas, webgl and screen variables
+    function getDeviceFingerprint() {
+      const parts = [];
+      
+      // 1. Screen specs
+      parts.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+      
+      // 2. User Agent & Platform
+      parts.push(navigator.userAgent);
+      parts.push(navigator.platform || 'unknown');
+      
+      // 3. Timezone & Languages
+      parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown');
+      parts.push(navigator.languages ? navigator.languages.join(',') : navigator.language);
+      
+      // 4. Hardware specs (RAM & Cores estimation)
+      parts.push(`ram:${navigator.deviceMemory || 'unknown'}`);
+      parts.push(`cores:${navigator.hardwareConcurrency || 'unknown'}`);
+
+      // 5. Canvas Drawing Signature (highly unique to OS/GPU rendering)
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200;
+        canvas.height = 50;
+        
+        ctx.textBaseline = "top";
+        ctx.font = "14px 'Arial', sans-serif";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(125,1,62,20);
+        ctx.fillStyle = "#069";
+        ctx.fillText("Verification, bot check 123", 2, 15);
+        ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+        ctx.font = "18px 'Inter', sans-serif";
+        ctx.fillText("Verify 🚀", 4, 30);
+        
+        ctx.strokeStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(80, 20, 10, 0, Math.PI, false);
+        ctx.stroke();
+        
+        parts.push(canvas.toDataURL());
+      } catch (e) {
+        parts.push('no-canvas');
+      }
+
+      // 6. WebGL Graphics Renderer Info
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl) {
+          const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+          if (debugInfo) {
+            parts.push(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL));
+            parts.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+          }
+        }
+      } catch (e) {
+        parts.push('no-webgl');
+      }
+
+      // Hash the combined features string
+      const rawString = parts.join('|||');
+      const hash = cyrb128(rawString);
+      return hash.toString(16); // Hex representation of 32-bit hash
+    }
+
     // Initialize Telegram WebApp
     if (window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.ready();
@@ -323,12 +408,27 @@
       statusCard.style.display = 'none';
 
       try {
+        const fingerprint = getDeviceFingerprint();
+        const deviceSpecs = {
+          ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'unknown',
+          screen: `${screen.width}x${screen.height}`,
+          platform: navigator.platform || 'unknown',
+          userAgent: navigator.userAgent,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'
+        };
+
         const response = await fetch('/api/verify', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ userId, token })
+          body: JSON.stringify({
+            userId,
+            token,
+            initData: (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.initData : '',
+            fingerprint,
+            deviceSpecs
+          })
         });
 
         const result = await response.json();

@@ -18,6 +18,10 @@ const settingsSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  forceUsername: {
+    type: Boolean,
+    default: false,
+  },
   updatedAt: {
     type: Date,
     default: Date.now,

@@ -43,6 +43,8 @@ bot.on('message', async (msg) => {
       '/users',
       '/stats',
       '/broadcast',
+      '/broadcast_verified',
+      '/broadcast_unverified',
       '/addchannel',
       '/removechannel',
       '/addreward',

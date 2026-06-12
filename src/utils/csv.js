@@ -12,7 +12,15 @@ const exportUsersToCSV = (users) => {
     'Referred By (Username)',
     'Total Referrals',
     'Verified Status',
-    'Verified At',
+    'Verified At (IST)',
+    'IP Address',
+    'Fingerprint Hash',
+    'RAM Size',
+    'Screen Resolution',
+    'Platform/OS',
+    'Timezone',
+    'Suspicious Status',
+    'Flagged Reason',
     'Joined Date'
   ];
 
@@ -33,7 +41,15 @@ const exportUsersToCSV = (users) => {
     user.referredBy ? (user.referredBy.username || '') : '',
     user.referrals,
     user.verified ? 'Verified' : 'Unverified',
-    user.verifiedAt ? user.verifiedAt.toISOString() : '',
+    user.verifiedAtIST || (user.verifiedAt ? user.verifiedAt.toISOString() : ''),
+    user.ipAddress || '',
+    user.deviceFingerprint || '',
+    user.deviceSpecs ? (user.deviceSpecs.ram || '') : '',
+    user.deviceSpecs ? (user.deviceSpecs.screen || '') : '',
+    user.deviceSpecs ? (user.deviceSpecs.platform || '') : '',
+    user.deviceSpecs ? (user.deviceSpecs.timezone || '') : '',
+    user.suspicious ? 'SUSPICIOUS' : 'OK',
+    user.flaggedReason || '',
     user.createdAt ? user.createdAt.toISOString() : ''
   ]);
 

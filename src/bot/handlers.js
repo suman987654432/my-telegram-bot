@@ -47,6 +47,12 @@ const handleMessage = async (bot, msg) => {
       }
     }
 
+    // 1b. Admin State Machine Interceptor
+    if (isAdmin(telegramId) && user.adminState) {
+      const { handleAdminState } = require('./admin');
+      return handleAdminState(bot, msg, user);
+    }
+
     // 2. Fetch Settings
     let settings = await Settings.findOne({});
     if (!settings) {
@@ -100,10 +106,10 @@ const handleMessage = async (bot, msg) => {
         return bot.sendMessage(msg.chat.id, `👋 *Welcome, ${user.firstName}!*\n\n🎉 All channels joined & account verified!\n\nUse the main menu buttons below to navigate the bot.`, getMainMenuKeyboard(isAdmin(telegramId)));
       }
 
-      if (!user.verificationToken) {
-        user.verificationToken = crypto.randomBytes(16).toString('hex');
-        await user.save();
-      }
+      // Generate or refresh verification link to reset the 10-minute validity window
+      user.verificationToken = crypto.randomBytes(16).toString('hex');
+      user.verificationTokenCreatedAt = new Date();
+      await user.save();
 
       const domain = config.WEBHOOK_URL ? config.WEBHOOK_URL : `http://127.0.0.1:${config.PORT || 3000}`;
       const verifyLink = `${domain}/verify?id=${user.telegramId}&token=${user.verificationToken}`;

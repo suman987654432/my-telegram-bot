@@ -84,6 +84,20 @@ const verifyUser = async (bot, telegramId) => {
       const referrer = await User.findById(user.referredBy._id);
       if (referrer) {
         referrer.referrals += 1;
+        
+        // Anti-farming check: Limit to max 3 verified referrals per 2 minutes
+        const recentReferralsCount = await User.countDocuments({
+          referredBy: referrer._id,
+          verified: true,
+          verifiedAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) }
+        });
+        
+        if (recentReferralsCount >= 3) {
+          referrer.suspicious = true;
+          referrer.flaggedReason = `Speed limit exceeded: ${recentReferralsCount} referrals verified within 2 minutes.`;
+          logger.warn(`🚨 Referrer ${referrer.telegramId} marked suspicious. Verified ${recentReferralsCount} users in 2 minutes.`);
+        }
+
         await referrer.save();
 
         logger.info(`🎉 Referrer ${referrer.telegramId} credited for referral of ${telegramId}`);
@@ -91,10 +105,14 @@ const verifyUser = async (bot, telegramId) => {
         // Notify referrer
         const refName = user.firstName;
         const refUser = user.username ? `@${user.username}` : 'Anonymous';
-        const msg = `🎉 *New Referral Verified!*\n\n` +
-                    `👤 *${refName}* (${refUser}) has completed verification.\n` +
-                    `➕ You earned *1* referral!\n` +
-                    `👥 Your total referrals: *${referrer.referrals}*`;
+        let msg = `🎉 *New Referral Verified!*\n\n` +
+                  `👤 *${refName}* (${refUser}) has completed verification.\n` +
+                  `➕ You earned *1* referral!\n` +
+                  `👥 Your total referrals: *${referrer.referrals}*`;
+                  
+        if (referrer.suspicious) {
+          msg += `\n\n⚠️ *System Note:* Your account activity has triggered our security system for verification frequency. Your referral earnings are subject to review during withdrawal.`;
+        }
 
         bot.sendMessage(referrer.telegramId, msg, { parse_mode: 'Markdown' })
           .catch((err) => logger.error(`Failed to notify referrer ${referrer.telegramId}: ${err.message}`));

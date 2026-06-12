@@ -54,11 +54,10 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
           return bot.deleteMessage(message.chat.id, message.message_id).catch(() => { });
         }
 
-        // Trigger Web verification
-        if (!user.verificationToken) {
-          user.verificationToken = crypto.randomBytes(16).toString('hex');
-          await user.save();
-        }
+        // Trigger Web verification (always refresh token/timestamp to reset the 10-minute validity window)
+        user.verificationToken = crypto.randomBytes(16).toString('hex');
+        user.verificationTokenCreatedAt = new Date();
+        await user.save();
 
         const domain = config.WEBHOOK_URL ? config.WEBHOOK_URL : `http://127.0.0.1:${config.PORT || 3000}`;
         const verifyLink = `${domain}/verify?id=${user.telegramId}&token=${user.verificationToken}`;
@@ -188,6 +187,38 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
 
       await bot.answerCallbackQuery(queryId);
 
+      // Delete reward milestone
+      if (data.startsWith('admin_del_rew_')) {
+        const rewardId = data.replace('admin_del_rew_', '');
+        const Reward = require('../models/reward.model');
+        await Reward.deleteOne({ _id: rewardId });
+        return admin.sendRewardsManagement(bot, message.chat.id, message.message_id);
+      }
+
+      // Delete required channel
+      if (data.startsWith('admin_del_chan_')) {
+        const channelId = data.replace('admin_del_chan_', '');
+        const Channel = require('../models/channel.model');
+        await Channel.deleteOne({ _id: channelId });
+        return admin.sendChannelsManagement(bot, message.chat.id, message.message_id);
+      }
+
+      // Start Add Reward Wizard
+      if (data === 'admin_add_rew_start') {
+        user.adminState = 'awaiting_reward_refs';
+        user.adminTempData = {};
+        await user.save();
+        return bot.sendMessage(message.chat.id, '✍️ *Step 1 of 3: Enter Milestone Referral Count*\n\nProvide the number of referrals needed to unlock this reward (e.g. `15`):', { parse_mode: 'Markdown' });
+      }
+
+      // Start Add Channel Wizard
+      if (data === 'admin_add_chan_start') {
+        user.adminState = 'awaiting_channel_id';
+        user.adminTempData = {};
+        await user.save();
+        return bot.sendMessage(message.chat.id, '✍️ *Step 1 of 3: Enter Channel Chat ID*\n\nProvide the public username or ID of the channel (e.g., `@mychannel`):', { parse_mode: 'Markdown' });
+      }
+
       // Approve claim
       if (data.startsWith('admin_claim_approve_')) {
         const claimId = data.replace('admin_claim_approve_', '');
@@ -266,17 +297,112 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
           return;
 
         case 'admin_stats':
-          return admin.sendDetailedStats(bot, message.chat.id);
-        case 'admin_users':
-          const totalUsers = await User.countDocuments({});
-          const verifiedUsers = await User.countDocuments({ verified: true });
-          return bot.sendMessage(message.chat.id, `👥 *Users List Summary*\n\nTotal Users: *${totalUsers}*\nVerified: *${verifiedUsers}*`, { parse_mode: 'Markdown' });
+          return admin.sendDetailedStats(bot, message.chat.id, message.message_id);
         case 'admin_pending_claims':
           return admin.sendPendingClaims(bot, message.chat.id);
         case 'admin_export_csv':
           return admin.handleExportCSV(bot, message.chat.id);
         case 'admin_settings':
-          return admin.sendSettingsDashboard(bot, message.chat.id);
+          return admin.sendSettingsDashboard(bot, message.chat.id, message.message_id);
+        case 'admin_back_to_dashboard':
+          try {
+            let settings = await Settings.findOne({});
+            if (!settings) {
+              settings = new Settings({});
+              await settings.save();
+            }
+            const totalUsers = await User.countDocuments({});
+            const verifiedUsers = await User.countDocuments({ verified: true });
+            const totalReferrals = await User.aggregate([
+              { $group: { _id: null, total: { $sum: '$referrals' } } }
+            ]);
+            const totalClaims = await Claim.countDocuments({});
+            const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
+
+            const response = `👑 *Best Offer Refer Bot — Admin Dashboard*\n\n` +
+                             `👥 Total Users: *${totalUsers}*\n` +
+                             `✅ Verified Users: *${verifiedUsers}*\n` +
+                             `📈 Total Referrals: *${referralCount}*\n` +
+                             `🎁 Total Claims: *${totalClaims}*\n\n` +
+                             `Use buttons below to navigate or run text commands like:\n` +
+                             `• \`/broadcast [message]\`\n` +
+                             `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
+                             `• \`/addreward [refs] [Title] - [Description]\`\n` +
+                             `• \`/pendingclaims\``;
+
+            await bot.editMessageText(response, {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              ...getAdminKeyboard(settings)
+            });
+          } catch (err) {
+            logger.error(`Error going back to dashboard: ${err.message}`);
+          }
+          return;
+        case 'admin_manage_rewards':
+          return admin.sendRewardsManagement(bot, message.chat.id, message.message_id);
+        case 'admin_manage_channels':
+          return admin.sendChannelsManagement(bot, message.chat.id, message.message_id);
+        case 'admin_add_stock':
+          await bot.editMessageText(
+            `📥 *Stock Management*\n\n` +
+            `Stock is currently unlimited or managed through rewards milestones. Create or edit milestones using \`/addreward\`.`, 
+            {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
+              }
+            }
+          );
+          return;
+        case 'admin_broadcast_verified':
+          await bot.editMessageText(
+            `📢 *Broadcast: Verified Users Only*\n\n` +
+            `To send a message to verified accounts only, send the command:\n` +
+            `\`/broadcast_verified [Your message content]\``, 
+            {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
+              }
+            }
+          );
+          return;
+        case 'admin_broadcast_all':
+          await bot.editMessageText(
+            `📢 *Broadcast: All Registered Users*\n\n` +
+            `To send a message to all users, send the command:\n` +
+            `\`/broadcast [Your message content]\``, 
+            {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
+              }
+            }
+          );
+          return;
+        case 'admin_broadcast_unverified':
+          await bot.editMessageText(
+            `📢 *Broadcast: Non-Verified Users Only*\n\n` +
+            `To send a message to unverified/pending accounts only, send the command:\n` +
+            `\`/broadcast_unverified [Your message content]\``, 
+            {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              reply_markup: {
+                inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
+              }
+            }
+          );
+          return;
       }
       return;
     }

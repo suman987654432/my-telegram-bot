@@ -51,6 +51,30 @@ const handleAdminCommand = async (bot, msg) => {
     return sendDetailedStats(bot, msg.chat.id);
   }
 
+  // /broadcast_verified command
+  if (text.startsWith('/broadcast_verified')) {
+    const broadcastText = text.replace('/broadcast_verified', '').trim();
+    if (!broadcastText) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/broadcast_verified [Your message here]`', { parse_mode: 'Markdown' });
+    }
+    
+    bot.sendMessage(msg.chat.id, '📣 *Broadcast started.* Sending messages to verified users only...');
+    runBroadcast(bot, msg.chat.id, broadcastText, 'verified');
+    return;
+  }
+
+  // /broadcast_unverified command
+  if (text.startsWith('/broadcast_unverified')) {
+    const broadcastText = text.replace('/broadcast_unverified', '').trim();
+    if (!broadcastText) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/broadcast_unverified [Your message here]`', { parse_mode: 'Markdown' });
+    }
+    
+    bot.sendMessage(msg.chat.id, '📣 *Broadcast started.* Sending messages to unverified users only...');
+    runBroadcast(bot, msg.chat.id, broadcastText, 'unverified');
+    return;
+  }
+
   // /broadcast command
   if (text.startsWith('/broadcast')) {
     const broadcastText = text.replace('/broadcast', '').trim();
@@ -59,9 +83,7 @@ const handleAdminCommand = async (bot, msg) => {
     }
     
     bot.sendMessage(msg.chat.id, '📣 *Broadcast started.* Sending messages to all users...');
-    
-    // Run broadcast in background
-    runBroadcast(bot, msg.chat.id, broadcastText);
+    runBroadcast(bot, msg.chat.id, broadcastText, 'all');
     return;
   }
 
@@ -248,7 +270,7 @@ const sendAdminDashboard = async (bot, chatId) => {
 /**
  * Sends detailed statistics report
  */
-const sendDetailedStats = async (bot, chatId) => {
+const sendDetailedStats = async (bot, chatId, messageId = null) => {
   try {
     const totalUsers = await User.countDocuments({});
     const verifiedUsers = await User.countDocuments({ verified: true });
@@ -274,9 +296,27 @@ const sendDetailedStats = async (bot, chatId) => {
                      `📢 *Required Channels:*\n${channelList}\n\n` +
                      `🏆 *Milestone Rewards:*\n${rewardList}`;
 
-    return bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    const options = {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
+      }
+    };
+
+    if (messageId) {
+      return bot.editMessageText(response, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options
+      });
+    } else {
+      return bot.sendMessage(chatId, response, options);
+    }
   } catch (err) {
     logger.error(`Detailed stats error: ${err.message}`);
+    if (messageId) {
+      return bot.editMessageText('❌ Failed to fetch detailed stats.', { chat_id: chatId, message_id: messageId });
+    }
     return bot.sendMessage(chatId, '❌ Failed to fetch detailed stats.');
   }
 };
@@ -301,12 +341,18 @@ const sendPendingClaims = async (bot, chatId) => {
       if (!user || !reward) continue;
 
       const username = user.username ? `@${user.username}` : 'No username';
-      const text = `👤 *User:* ${user.firstName} (${username})\n` +
-                   `🆔 *Telegram ID:* \`${user.telegramId}\`\n` +
-                   `👥 *Current Referrals:* *${user.referrals}*\n` +
-                   `🎁 *Reward:* *${reward.title}* (Needs ${reward.requiredRefs} refs)\n` +
-                   `📅 *Requested:* ${new Date(claim.claimedAt).toLocaleString()}\n` +
-                   `━━━━━━━━━━━━━━`;
+      let text = `👤 *User:* ${user.firstName} (${username})\n` +
+                 `🆔 *Telegram ID:* \`${user.telegramId}\`\n` +
+                 `👥 *Current Referrals:* *${user.referrals}*\n` +
+                 `🎁 *Reward:* *${reward.title}* (Needs ${reward.requiredRefs} refs)\n` +
+                 `📅 *Requested:* ${new Date(claim.claimedAt).toLocaleString()}\n`;
+
+      if (user.suspicious) {
+        text += `🚨 *SUSPICIOUS ACCOUNT!*\n` +
+                `⚠️ *Reason:* _${user.flaggedReason || 'High frequency of referrals'}_\n`;
+      }
+
+      text += `━━━━━━━━━━━━━━`;
 
       await bot.sendMessage(chatId, text, {
         parse_mode: 'Markdown',
@@ -358,9 +404,16 @@ const handleExportCSV = async (bot, chatId) => {
 /**
  * Runs the broadcast task in the background. Send to users one-by-one with delay.
  */
-const runBroadcast = async (bot, adminChatId, text) => {
+const runBroadcast = async (bot, adminChatId, text, target = 'all') => {
   try {
-    const users = await User.find({});
+    let query = {};
+    if (target === 'verified') {
+      query = { verified: true };
+    } else if (target === 'unverified') {
+      query = { verified: false };
+    }
+
+    const users = await User.find(query);
     let successCount = 0;
     let failCount = 0;
 
@@ -377,7 +430,7 @@ const runBroadcast = async (bot, adminChatId, text) => {
       await new Promise(resolve => setTimeout(resolve, 40));
     }
 
-    const report = `📢 *Broadcast Completed!*\n\n` +
+    const report = `📢 *Broadcast Completed (${target})!*\n\n` +
                    `✅ Delivered: *${successCount}*\n` +
                    `❌ Failed (Blocked/Deactivated): *${failCount}*`;
     bot.sendMessage(adminChatId, report, { parse_mode: 'Markdown' })
@@ -392,7 +445,7 @@ const runBroadcast = async (bot, adminChatId, text) => {
 /**
  * Handle settings dashboard
  */
-const sendSettingsDashboard = async (bot, chatId) => {
+const sendSettingsDashboard = async (bot, chatId, messageId = null) => {
   try {
     let settings = await Settings.findOne({});
     if (!settings) {
@@ -407,10 +460,236 @@ const sendSettingsDashboard = async (bot, chatId) => {
                      `• Set Support: Send \`/setsupport <username>\` (e.g. \`/setsupport @MySupport\`)\n` +
                      `• Toggle Status: Send \`/togglestatus\``;
 
-    return bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    const options = {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📬 Export CSV', callback_data: 'admin_export_csv' }],
+          [{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]
+        ]
+      }
+    };
+
+    if (messageId) {
+      return bot.editMessageText(response, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options
+      });
+    } else {
+      return bot.sendMessage(chatId, response, options);
+    }
   } catch (err) {
     logger.error(`Settings dashboard error: ${err.message}`);
+    if (messageId) {
+      return bot.editMessageText('❌ Failed to load settings.', { chat_id: chatId, message_id: messageId });
+    }
     return bot.sendMessage(chatId, '❌ Failed to load settings.');
+  }
+};
+
+const sendRewardsManagement = async (bot, chatId, messageId = null) => {
+  try {
+    const rewards = await Reward.find({ active: true }).sort({ requiredRefs: 1 });
+    
+    let text = `🎁 *Reward Milestones Management*\n\n`;
+    if (rewards.length === 0) {
+      text += `🫙 No active milestones configured. Click button below to add one.`;
+    } else {
+      text += `Current active milestones:\n\n`;
+      rewards.forEach((r, index) => {
+        text += `*${index + 1}.* 👥 *${r.requiredRefs} refs:* ${r.title}\n`;
+        text += `   _${r.description}_\n\n`;
+      });
+    }
+
+    const inline_keyboard = [];
+    rewards.forEach((r) => {
+      inline_keyboard.push([{ text: `❌ Delete "${r.title}" (${r.requiredRefs} Refs)`, callback_data: `admin_del_rew_${r._id}` }]);
+    });
+
+    inline_keyboard.push([{ text: '➕ Add Milestone Reward', callback_data: 'admin_add_rew_start' }]);
+    inline_keyboard.push([{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]);
+
+    const options = {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard }
+    };
+
+    if (messageId) {
+      await bot.editMessageText(text, { chat_id: chatId, message_id: messageId, ...options });
+    } else {
+      await bot.sendMessage(chatId, text, options);
+    }
+  } catch (err) {
+    logger.error(`Error rendering rewards management: ${err.message}`);
+  }
+};
+
+const sendChannelsManagement = async (bot, chatId, messageId = null) => {
+  try {
+    const channels = await Channel.find({ active: true });
+    
+    let text = `📺 *Required Channels Management (Force Join)*\n\n`;
+    if (channels.length === 0) {
+      text += `🫙 No active required channels. Click button below to add one.`;
+    } else {
+      text += `Current required channels:\n\n`;
+      channels.forEach((c, index) => {
+        text += `*${index + 1}.* \`${c.chatId}\` - *${c.title}*\n`;
+        text += `   [Invite Link](${c.inviteLink})\n\n`;
+      });
+    }
+
+    const inline_keyboard = [];
+    channels.forEach((c) => {
+      inline_keyboard.push([{ text: `❌ Delete "${c.title}"`, callback_data: `admin_del_chan_${c._id}` }]);
+    });
+
+    inline_keyboard.push([{ text: '➕ Add Required Channel', callback_data: 'admin_add_chan_start' }]);
+    inline_keyboard.push([{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]);
+
+    const options = {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard }
+    };
+
+    if (messageId) {
+      await bot.editMessageText(text, { chat_id: chatId, message_id: messageId, ...options });
+    } else {
+      await bot.sendMessage(chatId, text, options);
+    }
+  } catch (err) {
+    logger.error(`Error rendering channels management: ${err.message}`);
+  }
+};
+
+const handleAdminState = async (bot, msg, user) => {
+  const text = msg.text.trim();
+  const chatId = msg.chat.id;
+
+  try {
+    if (user.adminState === 'awaiting_reward_refs') {
+      const refs = parseInt(text, 10);
+      if (isNaN(refs) || refs <= 0) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid positive number of referrals (e.g., 15):', { parse_mode: 'Markdown' });
+      }
+      user.adminTempData = { ...user.adminTempData, requiredRefs: refs };
+      user.adminState = 'awaiting_reward_title';
+      user.markModified('adminTempData');
+      await user.save();
+      return bot.sendMessage(chatId, '✍️ *Step 2 of 3: Enter Reward Title*\n\nProvide a short title for this milestone (e.g. `Silver Chest`):', { parse_mode: 'Markdown' });
+    }
+
+    if (user.adminState === 'awaiting_reward_title') {
+      if (!text) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a title for this reward:');
+      }
+      user.adminTempData = { ...user.adminTempData, title: text };
+      user.adminState = 'awaiting_reward_desc';
+      user.markModified('adminTempData');
+      await user.save();
+      return bot.sendMessage(chatId, '✍️ *Step 3 of 3: Enter Reward Description*\n\nProvide a brief description of the reward (e.g. `Unlocks a $5 cash prize`):', { parse_mode: 'Markdown' });
+    }
+
+    if (user.adminState === 'awaiting_reward_desc') {
+      if (!text) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a description:');
+      }
+      
+      const { requiredRefs, title } = user.adminTempData;
+      
+      // Save to database
+      let reward = await Reward.findOne({ requiredRefs });
+      if (reward) {
+        reward.title = title;
+        reward.description = text;
+        reward.active = true;
+      } else {
+        reward = new Reward({
+          title,
+          description: text,
+          requiredRefs,
+          active: true
+        });
+      }
+      await reward.save();
+
+      // Clear admin state
+      user.adminState = null;
+      user.adminTempData = {};
+      user.markModified('adminTempData');
+      await user.save();
+
+      await bot.sendMessage(chatId, `✅ *Reward Milestone Configured!*\n\n• Milestone: *${requiredRefs}* refs\n• Title: *${title}*\n• Description: *${text}*`, { parse_mode: 'Markdown' });
+      
+      // Return to Rewards Management panel
+      return sendRewardsManagement(bot, chatId);
+    }
+
+    if (user.adminState === 'awaiting_channel_id') {
+      if (!text.startsWith('@') && isNaN(parseInt(text))) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Channel Chat ID must start with `@` (e.g., `@mychannel`) or be a Telegram ID (e.g., `-100123456`):');
+      }
+      user.adminTempData = { ...user.adminTempData, chatId: text };
+      user.adminState = 'awaiting_channel_title';
+      user.markModified('adminTempData');
+      await user.save();
+      return bot.sendMessage(chatId, '✍️ *Step 2 of 3: Enter Channel Title*\n\nProvide a display name for this channel (e.g., `Update Channel`):', { parse_mode: 'Markdown' });
+    }
+
+    if (user.adminState === 'awaiting_channel_title') {
+      if (!text) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a channel title:');
+      }
+      user.adminTempData = { ...user.adminTempData, title: text };
+      user.adminState = 'awaiting_channel_link';
+      user.markModified('adminTempData');
+      await user.save();
+      return bot.sendMessage(chatId, '✍️ *Step 3 of 3: Enter Channel Invite Link*\n\nProvide a valid Telegram invite URL (e.g., `https://t.me/...`):', { parse_mode: 'Markdown' });
+    }
+
+    if (user.adminState === 'awaiting_channel_link') {
+      if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid URL starting with http:// or https://:');
+      }
+      
+      const { chatId: channelChatId, title } = user.adminTempData;
+      
+      let channel = await Channel.findOne({ chatId: channelChatId });
+      if (channel) {
+        channel.title = title;
+        channel.inviteLink = text;
+        channel.active = true;
+      } else {
+        channel = new Channel({
+          chatId: channelChatId,
+          title,
+          inviteLink: text,
+          active: true
+        });
+      }
+      await channel.save();
+
+      // Clear admin state
+      user.adminState = null;
+      user.adminTempData = {};
+      user.markModified('adminTempData');
+      await user.save();
+
+      await bot.sendMessage(chatId, `✅ *Channel Added to Force Join!*\n\n• ID: \`${channelChatId}\`\n• Title: *${title}*\n• Link: ${text}`, { parse_mode: 'Markdown' });
+      
+      // Return to Channel Management panel
+      return sendChannelsManagement(bot, chatId);
+    }
+
+  } catch (err) {
+    logger.error(`Error in handleAdminState: ${err.message}`);
+    user.adminState = null;
+    user.adminTempData = {};
+    user.markModified('adminTempData');
+    await user.save();
+    return bot.sendMessage(chatId, '❌ An error occurred in the state machine. Resetting admin prompt.');
   }
 };
 
@@ -421,4 +700,7 @@ module.exports = {
   sendPendingClaims,
   handleExportCSV,
   sendSettingsDashboard,
+  sendRewardsManagement,
+  sendChannelsManagement,
+  handleAdminState,
 };

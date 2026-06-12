@@ -53,6 +53,43 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  verificationTokenCreatedAt: {
+    type: Date,
+    default: null,
+  },
+  deviceFingerprint: {
+    type: String,
+    default: null,
+    index: true,
+  },
+  deviceSpecs: {
+    ram: { type: String, default: null },
+    screen: { type: String, default: null },
+    platform: { type: String, default: null },
+    userAgent: { type: String, default: null },
+    timezone: { type: String, default: null },
+  },
+  verifiedAtIST: {
+    type: String,
+    default: null,
+  },
+  suspicious: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  flaggedReason: {
+    type: String,
+    default: null,
+  },
+  adminState: {
+    type: String,
+    default: null,
+  },
+  adminTempData: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
   createdAt: {
     type: Date,
     default: Date.now,
