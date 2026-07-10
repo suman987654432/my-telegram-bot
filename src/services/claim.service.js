@@ -49,11 +49,17 @@ const createClaimRequest = async (user, reward) => {
     const claim = new Claim({
       userId: user._id,
       rewardId: reward._id,
-      status: 'pending',
+      status: 'approved',
+      resolvedAt: Date.now(),
     });
 
     await claim.save();
-    logger.info(`💰 Claim request created for user ${user.telegramId}, reward: ${reward.title}`);
+    
+    // Instantly add to claimed rewards
+    user.claimedRewards.push(reward._id);
+    await user.save();
+    
+    logger.info(`💰 Claim instantly approved for user ${user.telegramId}, reward: ${reward.title}`);
     return claim;
   } catch (err) {
     logger.error(`Error creating claim request: ${err.message}`);

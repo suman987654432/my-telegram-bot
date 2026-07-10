@@ -144,7 +144,13 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
 
       try {
         await claimService.createClaimRequest(user, reward);
-        await bot.answerCallbackQuery(queryId, { text: '🎉 Claim requested! Pending admin approval.', show_alert: true });
+        await bot.answerCallbackQuery(queryId, { text: '🎉 Claim approved instantly!', show_alert: true });
+
+        // Send instant approval message to user chat
+        const approvalMsg = `🎉 *Claim Approved!*\n\n` +
+                            `🎁 Your withdrawal request for *${reward.title}* has been processed instantly!\n` +
+                            `ℹ️ Description: _${reward.description}_`;
+        bot.sendMessage(message.chat.id, approvalMsg, { parse_mode: 'Markdown' }).catch(()=>{});
 
         // Refresh Withdraw Center UI
         const rewards = await Reward.find({ active: true }).sort({ requiredRefs: 1 });
@@ -163,15 +169,6 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
           message_id: message.message_id,
           parse_mode: 'Markdown',
           ...getWithdrawKeyboard(user, rewards, userClaims)
-        });
-
-        // Notify admins about new claim
-        config.ADMIN_IDS.forEach((adminId) => {
-          bot.sendMessage(adminId, `🔔 *New Claim Request!*\n\n` +
-            `👤 User: *${user.firstName}* (${user.username ? '@' + user.username : 'No username'})\n` +
-            `🎁 Reward: *${reward.title}*\n` +
-            `Type \`/pendingclaims\` to review requests.`, { parse_mode: 'Markdown' })
-            .catch(() => { });
         });
 
       } catch (err) {
