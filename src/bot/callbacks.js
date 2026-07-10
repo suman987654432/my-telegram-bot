@@ -3,6 +3,7 @@ const Reward = require('../models/reward.model');
 const Claim = require('../models/claim.model');
 const Channel = require('../models/channel.model');
 const Settings = require('../models/settings.model');
+const Stock = require('../models/stock.model');
 const userService = require('../services/user.service');
 const telegramService = require('../services/telegram.service');
 const claimService = require('../services/claim.service');
@@ -219,6 +220,23 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
         return bot.sendMessage(message.chat.id, '✍️ *Step 1 of 3: Enter Channel Chat ID*\n\nProvide the public username or ID of the channel (e.g., `@mychannel`):', { parse_mode: 'Markdown' });
       }
 
+      // Start Create Stock Category
+      if (data === 'admin_create_stock_start') {
+        user.adminState = 'awaiting_stock_title';
+        user.adminTempData = {};
+        await user.save();
+        return bot.sendMessage(message.chat.id, '✍️ *Create Stock Category*\n\nEnter the title for this stock (e.g., `Netflix 1 Month`):', { parse_mode: 'Markdown' });
+      }
+
+      // Start Add Stock Wizard
+      if (data.startsWith('admin_add_stock_to_')) {
+        const stockId = data.replace('admin_add_stock_to_', '');
+        user.adminState = 'awaiting_stock_code';
+        user.adminTempData = { stockId };
+        await user.save();
+        return bot.sendMessage(message.chat.id, '✍️ *Add Codes to Stock*\n\nEnter the code(s) you want to add to this category.\nTo add multiple codes at once, separate them with a comma (e.g., `CODE1, CODE2, CODE3`):', { parse_mode: 'Markdown' });
+      }
+
       // Approve claim
       if (data.startsWith('admin_claim_approve_')) {
         const claimId = data.replace('admin_claim_approve_', '');
@@ -275,15 +293,15 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
             const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
 
             const response = `👑 *Best Offer Refer Bot — Admin Dashboard*\n\n` +
-                             `👥 Total Users: *${totalUsers}*\n` +
-                             `✅ Verified Users: *${verifiedUsers}*\n` +
-                             `📈 Total Referrals: *${referralCount}*\n` +
-                             `🎁 Total Claims: *${totalClaims}*\n\n` +
-                             `Use buttons below to navigate or run text commands like:\n` +
-                             `• \`/broadcast [message]\`\n` +
-                             `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
-                             `• \`/addreward [refs] [Title] - [Description]\`\n` +
-                             `• \`/pendingclaims\``;
+              `👥 Total Users: *${totalUsers}*\n` +
+              `✅ Verified Users: *${verifiedUsers}*\n` +
+              `📈 Total Referrals: *${referralCount}*\n` +
+              `🎁 Total Claims: *${totalClaims}*\n\n` +
+              `Use buttons below to navigate or run text commands like:\n` +
+              `• \`/broadcast [message]\`\n` +
+              `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
+              `• \`/addreward [refs] [Title] - [Description]\`\n` +
+              `• \`/pendingclaims\``;
 
             await bot.editMessageText(response, {
               chat_id: message.chat.id,
@@ -320,15 +338,15 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
             const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
 
             const response = `👑 *Best Offer Refer Bot — Admin Dashboard*\n\n` +
-                             `👥 Total Users: *${totalUsers}*\n` +
-                             `✅ Verified Users: *${verifiedUsers}*\n` +
-                             `📈 Total Referrals: *${referralCount}*\n` +
-                             `🎁 Total Claims: *${totalClaims}*\n\n` +
-                             `Use buttons below to navigate or run text commands like:\n` +
-                             `• \`/broadcast [message]\`\n` +
-                             `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
-                             `• \`/addreward [refs] [Title] - [Description]\`\n` +
-                             `• \`/pendingclaims\``;
+              `👥 Total Users: *${totalUsers}*\n` +
+              `✅ Verified Users: *${verifiedUsers}*\n` +
+              `📈 Total Referrals: *${referralCount}*\n` +
+              `🎁 Total Claims: *${totalClaims}*\n\n` +
+              `Use buttons below to navigate or run text commands like:\n` +
+              `• \`/broadcast [message]\`\n` +
+              `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
+              `• \`/addreward [refs] [Title] - [Description]\`\n` +
+              `• \`/pendingclaims\``;
 
             await bot.editMessageText(response, {
               chat_id: message.chat.id,
@@ -345,24 +363,38 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
         case 'admin_manage_channels':
           return admin.sendChannelsManagement(bot, message.chat.id, message.message_id);
         case 'admin_add_stock':
-          await bot.editMessageText(
-            `📥 *Stock Management*\n\n` +
-            `Stock is currently unlimited or managed through rewards milestones. Create or edit milestones using \`/addreward\`.`, 
-            {
+          try {
+            const stocks = await Stock.find({ active: true });
+            let text = `📥 *Stock Management*\n\nSelect a stock category to add codes, or create a new one:`;
+            let inline_keyboard = [];
+            
+            if (stocks.length > 0) {
+              stocks.forEach(s => {
+                inline_keyboard.push([{ 
+                  text: `📦 ${s.title} (Stock: ${s.codes.length})`, 
+                  callback_data: `admin_add_stock_to_${s._id}` 
+                }]);
+              });
+            }
+            
+            inline_keyboard.push([{ text: '➕ Create New Stock Category', callback_data: 'admin_create_stock_start' }]);
+            inline_keyboard.push([{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]);
+
+            await bot.editMessageText(text, {
               chat_id: message.chat.id,
               message_id: message.message_id,
               parse_mode: 'Markdown',
-              reply_markup: {
-                inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
-              }
-            }
-          );
+              reply_markup: { inline_keyboard }
+            });
+          } catch (err) {
+            logger.error(`Stock management error: ${err.message}`);
+          }
           return;
         case 'admin_broadcast_verified':
           await bot.editMessageText(
             `📢 *Broadcast: Verified Users Only*\n\n` +
             `To send a message to verified accounts only, send the command:\n` +
-            `\`/broadcast_verified [Your message content]\``, 
+            `\`/broadcast_verified [Your message content]\``,
             {
               chat_id: message.chat.id,
               message_id: message.message_id,
@@ -377,7 +409,7 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
           await bot.editMessageText(
             `📢 *Broadcast: All Registered Users*\n\n` +
             `To send a message to all users, send the command:\n` +
-            `\`/broadcast [Your message content]\``, 
+            `\`/broadcast [Your message content]\``,
             {
               chat_id: message.chat.id,
               message_id: message.message_id,
@@ -392,7 +424,7 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
           await bot.editMessageText(
             `📢 *Broadcast: Non-Verified Users Only*\n\n` +
             `To send a message to unverified/pending accounts only, send the command:\n` +
-            `\`/broadcast_unverified [Your message content]\``, 
+            `\`/broadcast_unverified [Your message content]\``,
             {
               chat_id: message.chat.id,
               message_id: message.message_id,

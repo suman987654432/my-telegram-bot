@@ -5,6 +5,7 @@ const Reward = require('../models/reward.model');
 const Claim = require('../models/claim.model');
 const Channel = require('../models/channel.model');
 const Settings = require('../models/settings.model');
+const Stock = require('../models/stock.model');
 const claimService = require('../services/claim.service');
 const { isAdmin } = require('../middleware/auth');
 const { exportUsersToCSV } = require('../utils/csv');
@@ -625,6 +626,57 @@ const handleAdminState = async (bot, msg, user) => {
       
       // Return to Rewards Management panel
       return sendRewardsManagement(bot, chatId);
+    }
+
+    if (user.adminState === 'awaiting_stock_title') {
+      if (!text) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a title for this stock category:');
+      }
+      
+      const stock = new Stock({ title: text, codes: [] });
+      await stock.save();
+
+      user.adminState = null;
+      user.adminTempData = {};
+      user.markModified('adminTempData');
+      await user.save();
+
+      await bot.sendMessage(chatId, `✅ *Stock Category Created!*\n\n• Title: *${text}*\n\nYou can now add codes to it from the "Add Stock" menu.`, { parse_mode: 'Markdown' });
+      return sendAdminDashboard(bot, chatId);
+    }
+
+    if (user.adminState === 'awaiting_stock_code') {
+      if (!text) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter at least one code:');
+      }
+      
+      const { stockId } = user.adminTempData;
+      
+      let stock = await Stock.findById(stockId);
+      if (!stock) {
+        user.adminState = null;
+        user.adminTempData = {};
+        await user.save();
+        return bot.sendMessage(chatId, '❌ *Error:* Stock category not found. Resetting state.');
+      }
+      
+      const codesToAdd = text.split(',').map(c => c.trim()).filter(c => c.length > 0);
+      if (codesToAdd.length === 0) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Could not parse codes. Try again:');
+      }
+      
+      stock.codes.push(...codesToAdd);
+      await stock.save();
+
+      // Clear admin state
+      user.adminState = null;
+      user.adminTempData = {};
+      user.markModified('adminTempData');
+      await user.save();
+
+      await bot.sendMessage(chatId, `✅ *Stock Codes Added!*\n\n• Category: *${stock.title}*\n• Codes Added: *${codesToAdd.length}*\n• Total Stock: *${stock.codes.length}*`, { parse_mode: 'Markdown' });
+      
+      return sendAdminDashboard(bot, chatId);
     }
 
     if (user.adminState === 'awaiting_channel_id') {
