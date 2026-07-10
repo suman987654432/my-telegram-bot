@@ -1,4 +1,4 @@
-const Channel = require('../models/channel.model');
+const cacheService = require('./cache.service');
 const logger = require('../utils/logger');
 
 /**
@@ -9,29 +9,34 @@ const logger = require('../utils/logger');
  */
 const checkChannelMembership = async (bot, userId) => {
   try {
-    const activeChannels = await Channel.find({ active: true });
+    const activeChannels = await cacheService.getActiveChannels();
     if (activeChannels.length === 0) {
       return { joinedAll: true, missingChannels: [] };
     }
 
     const missingChannels = [];
+    const joinedStatuses = ['member', 'creator', 'administrator', 'restricted'];
 
-    for (const channel of activeChannels) {
-      try {
-        const member = await bot.getChatMember(channel.chatId, userId);
-        
-        // Allowed membership roles in Telegram
-        const joinedStatuses = ['member', 'creator', 'administrator', 'restricted'];
-        
-        if (!joinedStatuses.includes(member.status)) {
-          missingChannels.push(channel);
+    // Check all channels concurrently for better performance
+    const checks = await Promise.all(
+      activeChannels.map(async (channel) => {
+        try {
+          const member = await bot.getChatMember(channel.chatId, userId);
+          
+          if (!joinedStatuses.includes(member.status)) {
+            return channel;
+          }
+          return null; // Joined successfully
+        } catch (err) {
+          logger.error(`Failed to check membership for channel ${channel.chatId} for user ${userId}: ${err.message}`);
+          // If the check fails, fail-safe by marking as missing
+          return channel;
         }
-      } catch (err) {
-        logger.error(`Failed to check membership for channel ${channel.chatId} for user ${userId}: ${err.message}`);
-        // If the check fails (e.g., bot kicked, incorrect channel configuration), fail-safe by marking as missing
-        missingChannels.push(channel);
-      }
-    }
+      })
+    );
+
+    // Add any channels that were returned from the checks (meaning they are missing)
+    missingChannels.push(...checks.filter((channel) => channel !== null));
 
     return {
       joinedAll: missingChannels.length === 0,

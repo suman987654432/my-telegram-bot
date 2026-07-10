@@ -1,9 +1,9 @@
 const User = require('../models/user.model');
 const Reward = require('../models/reward.model');
 const Claim = require('../models/claim.model');
-const Channel = require('../models/channel.model');
 const Settings = require('../models/settings.model');
 const Stock = require('../models/stock.model');
+const cacheService = require('../services/cache.service');
 const userService = require('../services/user.service');
 const telegramService = require('../services/telegram.service');
 const claimService = require('../services/claim.service');
@@ -201,6 +201,7 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
         const channelId = data.replace('admin_del_chan_', '');
         const Channel = require('../models/channel.model');
         await Channel.deleteOne({ _id: channelId });
+        cacheService.invalidateCache();
         return admin.sendChannelsManagement(bot, message.chat.id, message.message_id);
       }
 
@@ -282,6 +283,7 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
             }
             settings.deviceVerify = !settings.deviceVerify;
             await settings.save();
+            cacheService.invalidateCache();
 
             // Refresh the admin dashboard inline keyboard
             const totalUsers = await User.countDocuments({});

@@ -7,6 +7,7 @@ const Channel = require('../models/channel.model');
 const Settings = require('../models/settings.model');
 const Stock = require('../models/stock.model');
 const claimService = require('../services/claim.service');
+const cacheService = require('../services/cache.service');
 const { isAdmin } = require('../middleware/auth');
 const { exportUsersToCSV } = require('../utils/csv');
 const { getAdminKeyboard, getClaimReviewKeyboard } = require('../keyboards/inline');
@@ -115,6 +116,7 @@ const handleAdminCommand = async (bot, msg) => {
         channel = new Channel({ chatId, title, inviteLink });
       }
       await channel.save();
+      cacheService.invalidateCache();
       return bot.sendMessage(msg.chat.id, `✅ *Channel Added:* ${title} (${chatId}) is now required for force join.`, { parse_mode: 'Markdown' });
     } catch (err) {
       logger.error(`Add channel error: ${err.message}`);
@@ -133,6 +135,7 @@ const handleAdminCommand = async (bot, msg) => {
     try {
       const result = await Channel.deleteOne({ chatId });
       if (result.deletedCount > 0) {
+        cacheService.invalidateCache();
         return bot.sendMessage(msg.chat.id, `✅ *Channel Removed:* ${chatId} has been deleted from required channels.`, { parse_mode: 'Markdown' });
       } else {
         return bot.sendMessage(msg.chat.id, `❌ *Not Found:* No channel with chatId ${chatId} was found.`, { parse_mode: 'Markdown' });
@@ -722,6 +725,7 @@ const handleAdminState = async (bot, msg, user) => {
         });
       }
       await channel.save();
+      cacheService.invalidateCache();
 
       // Clear admin state
       user.adminState = null;

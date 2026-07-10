@@ -7,8 +7,8 @@ module.exports = {
       // RUNNING INSTANCES WARNING:
       // In webhook mode, you can scale to multiple instances (instances: 'max').
       // In polling mode, you MUST run exactly 1 instance to avoid duplicate message processing.
-      instances: 1,
-      exec_mode: 'fork', // change to 'cluster' only in webhook mode
+      instances: 'max',
+      exec_mode: 'cluster', // change to 'cluster' only in webhook mode
       
       watch: false,
       max_memory_restart: '300M',
