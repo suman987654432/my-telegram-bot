@@ -14,10 +14,7 @@ const checkEligibility = async (user, reward) => {
     return { eligible: false, reason: `Requires ${reward.requiredRefs} referrals. You have ${user.referrals}.` };
   }
 
-  // Check if reward is already claimed (approved)
-  if (user.claimedRewards.includes(reward._id)) {
-    return { eligible: false, reason: 'You have already claimed this reward.' };
-  }
+  // Removed single-claim restriction to allow multiple purchases.
 
   // Check if there is a pending claim request
   const pendingClaim = await Claim.findOne({
@@ -53,13 +50,23 @@ const createClaimRequest = async (user, reward) => {
       resolvedAt: Date.now(),
     });
 
+    // Use atomic update to prevent race conditions (double-spending fraud)
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: user._id, referrals: { $gte: reward.requiredRefs } },
+      { 
+        $inc: { referrals: -reward.requiredRefs },
+        $push: { claimedRewards: reward._id }
+      },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      throw new Error("Insufficient referrals or concurrent request blocked.");
+    }
+
     await claim.save();
     
-    // Instantly add to claimed rewards
-    user.claimedRewards.push(reward._id);
-    await user.save();
-    
-    logger.info(`💰 Claim instantly approved for user ${user.telegramId}, reward: ${reward.title}`);
+    logger.info(`💰 Claim instantly approved for user ${user.telegramId}, reward: ${reward.title}. Deducted ${reward.requiredRefs} refs.`);
     return claim;
   } catch (err) {
     logger.error(`Error creating claim request: ${err.message}`);

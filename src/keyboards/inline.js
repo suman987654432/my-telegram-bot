@@ -99,16 +99,12 @@ const getWithdrawKeyboard = (user, rewards, userClaims) => {
   const keyboard = [];
 
   rewards.forEach((reward) => {
-    const hasClaimed = user.claimedRewards.includes(reward._id);
     const isPending = userClaims.some(c => c.rewardId.toString() === reward._id.toString() && c.status === 'pending');
     
     let buttonText = '';
     let callbackData = '';
 
-    if (hasClaimed) {
-      buttonText = `✅ ${reward.title} (Claimed)`;
-      callbackData = `reward_details_${reward._id}`; // Shows description
-    } else if (isPending) {
+    if (isPending) {
       buttonText = `⏳ ${reward.title} (Pending Approval)`;
       callbackData = `reward_details_${reward._id}`;
     } else if (user.referrals >= reward.requiredRefs) {

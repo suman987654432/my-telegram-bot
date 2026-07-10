@@ -228,6 +228,66 @@ const handleAdminCommand = async (bot, msg) => {
   if (text === '/pendingclaims') {
     return sendPendingClaims(bot, msg.chat.id);
   }
+
+  // /addpoints command: /addpoints <userId> <amount>
+  if (text.startsWith('/addpoints')) {
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/addpoints <TelegramID> <Amount>`', { parse_mode: 'Markdown' });
+    }
+
+    const targetUserId = parts[1];
+    const amount = parseInt(parts[2], 10);
+
+    if (isNaN(amount) || amount <= 0) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Invalid amount:* Please provide a valid positive number.');
+    }
+
+    try {
+      const targetUser = await User.findOne({ telegramId: targetUserId });
+      if (!targetUser) {
+        return bot.sendMessage(msg.chat.id, `❌ *User Not Found:* No user with ID ${targetUserId} exists.`);
+      }
+
+      targetUser.referrals += amount;
+      await targetUser.save();
+
+      return bot.sendMessage(msg.chat.id, `✅ *Points Added!*\n\nUser: ${targetUser.firstName} (${targetUserId})\nAdded: +${amount} points\nNew Balance: *${targetUser.referrals}* points`, { parse_mode: 'Markdown' });
+    } catch (err) {
+      logger.error(`Add points error: ${err.message}`);
+      return bot.sendMessage(msg.chat.id, `❌ *Error:* ${err.message}`);
+    }
+  }
+
+  // /removepoints command: /removepoints <userId> <amount>
+  if (text.startsWith('/removepoints')) {
+    const parts = text.split(/\s+/);
+    if (parts.length < 3) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/removepoints <TelegramID> <Amount>`', { parse_mode: 'Markdown' });
+    }
+
+    const targetUserId = parts[1];
+    const amount = parseInt(parts[2], 10);
+
+    if (isNaN(amount) || amount <= 0) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Invalid amount:* Please provide a valid positive number.');
+    }
+
+    try {
+      const targetUser = await User.findOne({ telegramId: targetUserId });
+      if (!targetUser) {
+        return bot.sendMessage(msg.chat.id, `❌ *User Not Found:* No user with ID ${targetUserId} exists.`);
+      }
+
+      targetUser.referrals = Math.max(0, targetUser.referrals - amount);
+      await targetUser.save();
+
+      return bot.sendMessage(msg.chat.id, `✅ *Points Deducted!*\n\nUser: ${targetUser.firstName} (${targetUserId})\nDeducted: -${amount} points\nNew Balance: *${targetUser.referrals}* points`, { parse_mode: 'Markdown' });
+    } catch (err) {
+      logger.error(`Remove points error: ${err.message}`);
+      return bot.sendMessage(msg.chat.id, `❌ *Error:* ${err.message}`);
+    }
+  }
 };
 
 /**
@@ -256,10 +316,10 @@ const sendAdminDashboard = async (bot, chatId) => {
                      `📈 Total Referrals: *${referralCount}*\n` +
                      `🎁 Total Claims: *${totalClaims}*\n\n` +
                      `Use buttons below to navigate or run text commands like:\n` +
+                     `• \`/addpoints [TelegramID] [amount]\`\n` +
+                     `• \`/removepoints [TelegramID] [amount]\`\n` +
                      `• \`/broadcast [message]\`\n` +
-                     `• \`/addchannel [chatId] [Title] [inviteLink]\`\n` +
-                     `• \`/addreward [refs] [Title] - [Description]\`\n` +
-                     `• \`/pendingclaims\``;
+                     `• \`/addchannel [chatId] [Title] [inviteLink]\``;
 
     return bot.sendMessage(chatId, response, {
       parse_mode: 'Markdown',

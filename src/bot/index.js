@@ -50,7 +50,9 @@ bot.on('message', async (msg) => {
       '/addreward',
       '/removereward',
       '/claims',
-      '/pendingclaims'
+      '/pendingclaims',
+      '/addpoints',
+      '/removepoints'
     ];
     
     const cmd = msg.text.split(/\s+/)[0];
@@ -66,6 +68,14 @@ bot.on('message', async (msg) => {
 // Global Callback router for inline buttons
 bot.on('callback_query', async (query) => {
   if (!query.from) return;
+
+  const telegramId = String(query.from.id);
+
+  // Anti-spam middleware checks for button clicks
+  if (checkRateLimit(telegramId, bot)) {
+    return bot.answerCallbackQuery(query.id, { text: '⚠️ You are clicking too fast! Please slow down.', show_alert: true }).catch(()=>{});
+  }
+
   return handleCallbackQuery(bot, query);
 });
 
