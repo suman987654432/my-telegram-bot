@@ -799,6 +799,46 @@ const handleAdminState = async (bot, msg, user) => {
       return sendChannelsManagement(bot, chatId);
     }
 
+    if (user.adminState === 'awaiting_points_user_id') {
+      if (!text || isNaN(parseInt(text))) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid Telegram ID (e.g. 123456789):', { parse_mode: 'Markdown' });
+      }
+      user.adminTempData = { ...user.adminTempData, targetUserId: text };
+      user.adminState = 'awaiting_points_amount';
+      user.markModified('adminTempData');
+      await user.save();
+      return bot.sendMessage(chatId, '✍️ *Add Points - Step 2 of 2*\n\nHow many points do you want to add?', { parse_mode: 'Markdown' });
+    }
+
+    if (user.adminState === 'awaiting_points_amount') {
+      const amount = parseInt(text, 10);
+      if (isNaN(amount) || amount <= 0) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid positive number:');
+      }
+      
+      const { targetUserId } = user.adminTempData;
+      
+      const targetUser = await User.findOne({ telegramId: targetUserId });
+      if (!targetUser) {
+        user.adminState = null;
+        user.adminTempData = {};
+        await user.save();
+        return bot.sendMessage(chatId, `❌ *Error:* No user found with ID ${targetUserId}. Resetting state.`);
+      }
+
+      targetUser.referrals += amount;
+      await targetUser.save();
+
+      // Clear admin state
+      user.adminState = null;
+      user.adminTempData = {};
+      user.markModified('adminTempData');
+      await user.save();
+
+      await bot.sendMessage(chatId, `✅ *Points Added!*\n\nUser: ${targetUser.firstName} (${targetUserId})\nAdded: +${amount} points\nNew Balance: *${targetUser.referrals}* points`, { parse_mode: 'Markdown' });
+      return sendAdminDashboard(bot, chatId);
+    }
+
   } catch (err) {
     logger.error(`Error in handleAdminState: ${err.message}`);
     user.adminState = null;

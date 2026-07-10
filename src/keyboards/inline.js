@@ -146,6 +146,7 @@ const getAdminKeyboard = (settings) => {
         [{ text: '📊 Stats', callback_data: 'admin_stats' }],
         [{ text: '🎁 Manage Rewards', callback_data: 'admin_manage_rewards' }],
         [{ text: '📥 Add Stock', callback_data: 'admin_add_stock' }],
+        [{ text: '💰 Add Points to User', callback_data: 'admin_add_points_start' }],
         [{ text: '📺 Manage Channels', callback_data: 'admin_manage_channels' }],
         [{ text: '📢 Broadcast: Verified Only', callback_data: 'admin_broadcast_verified' }],
         [{ text: '📢 Broadcast: All Users', callback_data: 'admin_broadcast_all' }],
