@@ -21,6 +21,10 @@ const rewardSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  codes: {
+    type: [String],
+    default: [],
+  },
   createdAt: {
     type: Date,
     default: Date.now,

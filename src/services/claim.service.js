@@ -43,12 +43,20 @@ const createClaimRequest = async (user, reward) => {
       throw new Error(reason);
     }
 
-    const claim = new Claim({
-      userId: user._id,
-      rewardId: reward._id,
-      status: 'approved',
-      resolvedAt: Date.now(),
-    });
+    // --- Stock Logic ---
+    let givenCode = null;
+    
+    // Atomically check and pop the first code directly from the Reward
+    const updatedReward = await Reward.findOneAndUpdate(
+      { _id: reward._id, "codes.0": { $exists: true } },
+      { $pop: { codes: -1 } }, // -1 removes the first element
+      { new: false } // Returns the document BEFORE modification
+    );
+
+    if (!updatedReward || updatedReward.codes.length === 0) {
+      throw new Error("⚠️ Currently Out of Stock! Please try again later.");
+    }
+    givenCode = updatedReward.codes[0]; // The popped code
 
     // Use atomic update to prevent race conditions (double-spending fraud)
     const updatedUser = await User.findOneAndUpdate(
@@ -61,13 +69,24 @@ const createClaimRequest = async (user, reward) => {
     );
 
     if (!updatedUser) {
+      // Rollback reward stock if user update failed
+      if (givenCode) {
+        await Reward.updateOne({ _id: reward._id }, { $push: { codes: givenCode } });
+      }
       throw new Error("Insufficient referrals or concurrent request blocked.");
     }
+
+    const claim = new Claim({
+      userId: user._id,
+      rewardId: reward._id,
+      status: 'approved',
+      resolvedAt: Date.now(),
+    });
 
     await claim.save();
     
     logger.info(`💰 Claim instantly approved for user ${user.telegramId}, reward: ${reward.title}. Deducted ${reward.requiredRefs} refs.`);
-    return claim;
+    return { claim, givenCode };
   } catch (err) {
     logger.error(`Error creating claim request: ${err.message}`);
     throw err;

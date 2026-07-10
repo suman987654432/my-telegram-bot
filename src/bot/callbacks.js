@@ -2,7 +2,6 @@ const User = require('../models/user.model');
 const Reward = require('../models/reward.model');
 const Claim = require('../models/claim.model');
 const Settings = require('../models/settings.model');
-const Stock = require('../models/stock.model');
 const cacheService = require('../services/cache.service');
 const userService = require('../services/user.service');
 const telegramService = require('../services/telegram.service');
@@ -143,13 +142,18 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
       }
 
       try {
-        await claimService.createClaimRequest(user, reward);
+        const { claim, givenCode } = await claimService.createClaimRequest(user, reward);
         await bot.answerCallbackQuery(queryId, { text: '🎉 Claim approved instantly!', show_alert: true });
 
         // Send instant approval message to user chat
-        const approvalMsg = `🎉 *Claim Approved!*\n\n` +
-                            `🎁 Your withdrawal request for *${reward.title}* has been processed instantly!\n` +
-                            `ℹ️ Description: _${reward.description}_`;
+        let approvalMsg = `🎉 *Claim Approved!*\n\n` +
+                          `🎁 Your withdrawal request for *${reward.title}* has been processed instantly!\n`;
+                          
+        if (givenCode) {
+          approvalMsg += `\n🔑 *Your Unique Code:* \`${givenCode}\`\n\n`;
+        }
+        
+        approvalMsg += `ℹ️ Description: _${reward.description}_`;
         bot.sendMessage(message.chat.id, approvalMsg, { parse_mode: 'Markdown' }).catch(()=>{});
 
         // Refresh Withdraw Center UI
@@ -218,21 +222,13 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
         return bot.sendMessage(message.chat.id, '✍️ *Step 1 of 3: Enter Channel Chat ID*\n\nProvide the public username or ID of the channel (e.g., `@mychannel`):', { parse_mode: 'Markdown' });
       }
 
-      // Start Create Stock Category
-      if (data === 'admin_create_stock_start') {
-        user.adminState = 'awaiting_stock_title';
-        user.adminTempData = {};
+      // Start Add Codes Wizard (formerly Add Stock Wizard)
+      if (data.startsWith('admin_add_codes_to_')) {
+        const rewardId = data.replace('admin_add_codes_to_', '');
+        user.adminState = 'awaiting_reward_code';
+        user.adminTempData = { rewardId };
         await user.save();
-        return bot.sendMessage(message.chat.id, '✍️ *Create Stock Category*\n\nEnter the title for this stock (e.g., `Netflix 1 Month`):', { parse_mode: 'Markdown' });
-      }
-
-      // Start Add Stock Wizard
-      if (data.startsWith('admin_add_stock_to_')) {
-        const stockId = data.replace('admin_add_stock_to_', '');
-        user.adminState = 'awaiting_stock_code';
-        user.adminTempData = { stockId };
-        await user.save();
-        return bot.sendMessage(message.chat.id, '✍️ *Add Codes to Stock*\n\nEnter the code(s) you want to add to this category.\nTo add multiple codes at once, separate them with a comma (e.g., `CODE1, CODE2, CODE3`):', { parse_mode: 'Markdown' });
+        return bot.sendMessage(message.chat.id, '✍️ *Add Codes to Reward*\n\nEnter the code(s) you want to add to this reward.\nTo add multiple codes at once, separate them with a comma (e.g., `CODE1, CODE2, CODE3`):', { parse_mode: 'Markdown' });
       }
 
       // Approve claim
@@ -363,20 +359,21 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
           return admin.sendChannelsManagement(bot, message.chat.id, message.message_id);
         case 'admin_add_stock':
           try {
-            const stocks = await Stock.find({ active: true });
-            let text = `📥 *Stock Management*\n\nSelect a stock category to add codes, or create a new one:`;
+            const rewards = await Reward.find({ active: true });
+            let text = `📥 *Stock Management*\n\nSelect a reward to add codes to it:`;
             let inline_keyboard = [];
             
-            if (stocks.length > 0) {
-              stocks.forEach(s => {
+            if (rewards.length > 0) {
+              rewards.forEach(r => {
                 inline_keyboard.push([{ 
-                  text: `📦 ${s.title} (Stock: ${s.codes.length})`, 
-                  callback_data: `admin_add_stock_to_${s._id}` 
+                  text: `📦 ${r.title} (Stock: ${r.codes.length})`, 
+                  callback_data: `admin_add_codes_to_${r._id}` 
                 }]);
               });
+            } else {
+              text += `\n\n🫙 No rewards found. Create a reward first from "Manage Rewards".`;
             }
             
-            inline_keyboard.push([{ text: '➕ Create New Stock Category', callback_data: 'admin_create_stock_start' }]);
             inline_keyboard.push([{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]);
 
             await bot.editMessageText(text, {
