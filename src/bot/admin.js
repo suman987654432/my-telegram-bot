@@ -712,7 +712,7 @@ const handleAdminState = async (bot, msg, user) => {
         return bot.sendMessage(chatId, '❌ *Error:* Reward not found. Resetting state.');
       }
       
-      const codesToAdd = text.split(',').map(c => c.trim()).filter(c => c.length > 0);
+      const codesToAdd = text.split(/[\n,]+/).map(c => c.trim()).filter(c => c.length > 0);
       if (codesToAdd.length === 0) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Could not parse codes. Try again:');
       }
