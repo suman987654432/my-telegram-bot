@@ -83,6 +83,11 @@ const userSchema = new mongoose.Schema({
     default: false,
     index: true,
   },
+  isBanned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
   flaggedReason: {
     type: String,
     default: null,

@@ -19,14 +19,25 @@ function verifyInitData(initDataString, botToken) {
     const hash = params.get('hash');
     if (!hash) return false;
     params.delete('hash');
-    
+
     const sortedKeys = Array.from(params.keys()).sort();
     const dataCheckString = sortedKeys.map(key => `${key}=${params.get(key)}`).join('\n');
-    
+
     const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
     const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    
-    return computedHash === hash;
+
+    if (computedHash === hash) {
+      const result = {};
+      for (const [key, value] of params.entries()) {
+        try {
+          result[key] = JSON.parse(value);
+        } catch (e) {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
+    return false;
   } catch (err) {
     return false;
   }
@@ -113,9 +124,25 @@ router.post('/api/verify', async (req, res) => {
     // 3. Telegram Web App Cryptographic Signature Check (Enforced in Production Only)
     const isProduction = !!config.WEBHOOK_URL;
     if (isProduction && !isLocalIp) {
-      if (!verifyInitData(initData, config.TELEGRAM_BOT_TOKEN)) {
+      const validatedData = verifyInitData(initData, config.TELEGRAM_BOT_TOKEN);
+      if (!validatedData) {
         logger.warn(`⚠️ WebApp Spoofing Blocked: User ${userId} sent invalid cryptographic signature.`);
         return res.status(400).json({ error: 'Security verification failed: Please open the verification page inside the official Telegram app.' });
+      }
+
+      // Replay Attack Prevention (auth_date is in seconds)
+      const authDate = parseInt(validatedData.auth_date);
+      const now = Math.floor(Date.now() / 1000);
+      if (now - authDate > 600) { // 10 minutes limit
+        logger.warn(`⚠️ Replay Attack Blocked: User ${userId} used expired initData.`);
+        return res.status(400).json({ error: 'Session expired. Please reopen the verification page.' });
+      }
+
+      // Cross-Account Spoofing Prevention
+      const initDataUserId = validatedData.user ? String(validatedData.user.id) : null;
+      if (initDataUserId !== String(userId)) {
+        logger.warn(`⚠️ Cross-Account Spoofing Blocked: initData user ID ${initDataUserId} does not match request user ID ${userId}.`);
+        return res.status(400).json({ error: 'Security verification failed: User ID mismatch.' });
       }
     }
 
@@ -145,19 +172,19 @@ router.post('/api/verify', async (req, res) => {
           return res.status(400).json({ error: 'Device already verified: This device has already been used to verify a Telegram account.' });
         }
       }
-      
+
       // Strict Anti-Cheat: Timezone & Emulator Check
       if (deviceSpecs) {
         // Enforce India Timezone to block VPNs and randomizing Clones (Allow Kolkata and Calcutta)
         if (deviceSpecs.timezone && deviceSpecs.timezone !== 'Asia/Kolkata' && deviceSpecs.timezone !== 'Asia/Calcutta') {
-           logger.warn(`⚠️ Timezone Blocked: User ${userId} has suspicious timezone: ${deviceSpecs.timezone}`);
-           return res.status(400).json({ error: 'Verification blocked: VPNs or Clone apps are strictly prohibited.' });
+          logger.warn(`⚠️ Timezone Blocked: User ${userId} has suspicious timezone: ${deviceSpecs.timezone}`);
+          return res.status(400).json({ error: 'Verification blocked: VPNs or Clone apps are strictly prohibited.' });
         }
-        
+
         // Block obvious missing data from clone apps
         if (deviceSpecs.platform === 'unknown' || deviceSpecs.userAgent === 'unknown') {
-           logger.warn(`⚠️ Clone App Blocked: User ${userId} missing device specs.`);
-           return res.status(400).json({ error: 'Verification blocked: Invalid device environment detected.' });
+          logger.warn(`⚠️ Clone App Blocked: User ${userId} missing device specs.`);
+          return res.status(400).json({ error: 'Verification blocked: Invalid device environment detected.' });
         }
       }
     }
@@ -199,7 +226,7 @@ router.post('/api/verify', async (req, res) => {
       .catch((err) => logger.error(`Failed to send web verification success message to ${userId}: ${err.message}`));
 
     bot.sendMessage(userId, '🔗 Tap "My Referral Link" to share and start earning!')
-      .catch(() => {});
+      .catch(() => { });
 
     return res.status(200).json({ message: 'Verification successful.' });
   } catch (err) {

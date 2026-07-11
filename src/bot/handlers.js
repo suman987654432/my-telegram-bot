@@ -47,6 +47,11 @@ const handleMessage = async (bot, msg) => {
       }
     }
 
+    // 1c. Banned User Interceptor
+    if (user.isBanned) {
+      return bot.sendMessage(msg.chat.id, '⛔ *You have been banned from using this bot.*', { parse_mode: 'Markdown' });
+    }
+
     // 1b. Admin State Machine Interceptor
     if (isAdmin(telegramId) && user.adminState) {
       const { handleAdminState } = require('./admin');

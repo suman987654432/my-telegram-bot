@@ -52,7 +52,9 @@ bot.on('message', async (msg) => {
       '/claims',
       '/pendingclaims',
       '/addpoints',
-      '/removepoints'
+      '/removepoints',
+      '/ban',
+      '/unban'
     ];
 
     const cmd = msg.text.split(/\s+/)[0];

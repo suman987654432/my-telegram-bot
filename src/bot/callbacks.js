@@ -29,6 +29,10 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
       return bot.answerCallbackQuery(queryId, { text: '❌ Please start the bot first using /start', show_alert: true });
     }
 
+    if (user.isBanned) {
+      return bot.answerCallbackQuery(queryId, { text: '⛔ You have been banned from using this bot.', show_alert: true });
+    }
+
     // --- FORCE JOIN VERIFICATION ---
     if (data === 'verify_channels') {
       const { joinedAll, missingChannels } = await telegramService.checkChannelMembership(bot, telegramId);

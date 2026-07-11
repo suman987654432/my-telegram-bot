@@ -52,6 +52,38 @@ const handleAdminCommand = async (bot, msg) => {
     return sendDetailedStats(bot, msg.chat.id);
   }
 
+  // /ban command
+  if (text.startsWith('/ban')) {
+    const parts = text.split(/\s+/);
+    if (parts.length < 2) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/ban <telegramId>`', { parse_mode: 'Markdown' });
+    }
+    const targetId = parts[1];
+    const userToBan = await User.findOne({ telegramId: targetId });
+    if (!userToBan) {
+      return bot.sendMessage(msg.chat.id, '❌ User not found in database.');
+    }
+    userToBan.isBanned = true;
+    await userToBan.save();
+    return bot.sendMessage(msg.chat.id, `✅ User ${targetId} has been **BANNED** from the bot.`, { parse_mode: 'Markdown' });
+  }
+
+  // /unban command
+  if (text.startsWith('/unban')) {
+    const parts = text.split(/\s+/);
+    if (parts.length < 2) {
+      return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/unban <telegramId>`', { parse_mode: 'Markdown' });
+    }
+    const targetId = parts[1];
+    const userToUnban = await User.findOne({ telegramId: targetId });
+    if (!userToUnban) {
+      return bot.sendMessage(msg.chat.id, '❌ User not found in database.');
+    }
+    userToUnban.isBanned = false;
+    await userToUnban.save();
+    return bot.sendMessage(msg.chat.id, `✅ User ${targetId} has been **UNBANNED** and can use the bot again.`, { parse_mode: 'Markdown' });
+  }
+
   // /broadcast_verified command
   if (text.startsWith('/broadcast_verified')) {
     const broadcastText = text.replace('/broadcast_verified', '').trim();
@@ -324,6 +356,8 @@ const sendAdminDashboard = async (bot, chatId) => {
       `Use buttons below to navigate or run text commands like:\n` +
       `• \`/addpoints [TelegramID] [amount]\`\n` +
       `• \`/removepoints [TelegramID] [amount]\`\n` +
+      `• \`/ban [TelegramID]\` - Block a user\n` +
+      `• \`/unban [TelegramID]\` - Unblock a user\n` +
       `• \`/broadcast [message]\`\n` +
       `• \`/addchannel [chatId] [Title] [inviteLink]\``;
 
