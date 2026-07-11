@@ -40,10 +40,6 @@ const userSchema = new mongoose.Schema({
       ref: 'Reward',
     },
   ],
-  captchaAnswer: {
-    type: String,
-    default: null,
-  },
   ipAddress: {
     type: String,
     default: null,

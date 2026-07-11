@@ -94,8 +94,10 @@ const verifyUser = async (bot, telegramId) => {
         
         if (recentReferralsCount >= 3) {
           referrer.suspicious = true;
-          referrer.flaggedReason = `Speed limit exceeded: ${recentReferralsCount} referrals verified within 2 minutes.`;
-          logger.warn(`🚨 Referrer ${referrer.telegramId} marked suspicious. Verified ${recentReferralsCount} users in 2 minutes.`);
+          referrer.isBanned = true;
+          referrer.flaggedReason = `Speed limit exceeded: ${recentReferralsCount} referrals verified within 2 minutes. Auto-Banned.`;
+          logger.warn(`🚨 Referrer ${referrer.telegramId} marked suspicious and AUTO-BANNED. Verified ${recentReferralsCount} users in 2 minutes.`);
+          bot.sendMessage(referrer.telegramId, '⛔ *Your account has been automatically banned for suspicious referral farming activity.*', { parse_mode: 'Markdown' }).catch(()=>{});
         }
 
         await referrer.save();

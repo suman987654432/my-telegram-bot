@@ -35,57 +35,7 @@ const getForceJoinKeyboard = (channels) => {
   };
 };
 
-/**
- * Generates a random math question and returns options for inline buttons.
- * Stores the correct answer.
- * @returns {object} - { questionText, correctAns, keyboard }
- */
-const generateCaptcha = () => {
-  const num1 = Math.floor(Math.random() * 10) + 1; // 1 to 10
-  const num2 = Math.floor(Math.random() * 10) + 1; // 1 to 10
-  const correctAns = num1 + num2;
 
-  // Generate 3 unique wrong answers close to correct answer
-  const wrongAnswers = new Set();
-  while (wrongAnswers.size < 3) {
-    const offset = Math.floor(Math.random() * 7) - 3; // -3 to 3
-    const wrongAns = correctAns + offset;
-    if (wrongAns !== correctAns && wrongAns > 0) {
-      wrongAnswers.add(wrongAns);
-    }
-  }
-
-  // Combine and shuffle options
-  const options = [correctAns, ...Array.from(wrongAnswers)];
-  options.sort(() => Math.random() - 0.5);
-
-  // Split into rows of 2 buttons
-  const inlineKeyboard = [];
-  for (let i = 0; i < options.length; i += 2) {
-    const row = [];
-    row.push({
-      text: String(options[i]),
-      callback_data: `captcha_ans_${options[i]}`,
-    });
-    if (options[i + 1] !== undefined) {
-      row.push({
-        text: String(options[i + 1]),
-        callback_data: `captcha_ans_${options[i + 1]}`,
-      });
-    }
-    inlineKeyboard.push(row);
-  }
-
-  return {
-    questionText: `🧠 *Security Check*\n\nPlease solve the following math puzzle to verify you are human:\n\n*${num1} + ${num2} = ?*`,
-    correctAns: String(correctAns),
-    keyboard: {
-      reply_markup: {
-        inline_keyboard: inlineKeyboard,
-      },
-    },
-  };
-};
 
 /**
  * Returns inline keyboard for the Withdraw Center.
@@ -180,7 +130,6 @@ const getClaimReviewKeyboard = (claimId) => {
 
 module.exports = {
   getForceJoinKeyboard,
-  generateCaptcha,
   getWithdrawKeyboard,
   getAdminKeyboard,
   getClaimReviewKeyboard,

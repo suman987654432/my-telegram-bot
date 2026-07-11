@@ -439,6 +439,8 @@
             userId,
             token,
             initData: (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.initData : '',
+            tgPlatform: (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.platform : 'unknown',
+            tgVersion: (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.version : 'unknown',
             fingerprint,
             deviceToken: getDeviceToken(),
             deviceSpecs

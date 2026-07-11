@@ -78,13 +78,35 @@ router.get('/verify', (req, res) => {
  * Process security verification, perform unique IP check, and activate the user.
  */
 router.post('/api/verify', async (req, res) => {
-  const { userId, token, initData, fingerprint, deviceToken, deviceSpecs } = req.body;
-
-  if (!userId || !token) {
-    return res.status(400).json({ error: 'Missing user ID or verification token.' });
-  }
-
   try {
+    const { userId, token, initData, tgPlatform, tgVersion, fingerprint, deviceToken, deviceSpecs } = req.body;
+
+    if (!userId || !token) {
+      return res.status(400).json({ error: 'Missing required parameters.' });
+    }
+
+    // 0. Strict Anti-Modded Client Check (The Turbotel/Script Killer)
+    if (deviceSpecs && tgPlatform) {
+      const ua = (deviceSpecs.userAgent || '').toLowerCase();
+      
+      // Block known modded names
+      if (ua.includes('turbotel') || ua.includes('plusmessenger') || ua.includes('bgram') || ua.includes('headless') || ua.includes('puppeteer')) {
+        logger.warn(`⚠️ Modded Client Blocked: User ${userId} used forbidden app in UserAgent.`);
+        return res.status(400).json({ error: 'Security violation: Unofficial or modified Telegram clients are strictly prohibited.' });
+      }
+
+      // Enforce Official App Signatures
+      if (tgPlatform === 'android' && !ua.includes('telegram-android')) {
+        logger.warn(`⚠️ Unofficial Client Blocked: User ${userId} claimed android but missing Telegram-Android in UserAgent.`);
+        return res.status(400).json({ error: 'Verification blocked: Please use the OFFICIAL Telegram Android app.' });
+      }
+      
+      if (tgPlatform === 'ios' && !ua.includes('telegram-ios')) {
+        logger.warn(`⚠️ Unofficial Client Blocked: User ${userId} claimed ios but missing Telegram-iOS in UserAgent.`);
+        return res.status(400).json({ error: 'Verification blocked: Please use the OFFICIAL Telegram iOS app.' });
+      }
+    }
+
     const user = await User.findOne({ telegramId: userId });
     if (!user || user.verificationToken !== token) {
       return res.status(400).json({ error: 'Invalid verification link.' });

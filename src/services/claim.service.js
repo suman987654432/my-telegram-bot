@@ -14,6 +14,10 @@ const checkEligibility = async (user, reward) => {
     return { eligible: false, reason: `Requires ${reward.requiredRefs} referrals. You have ${user.referrals}.` };
   }
 
+  if (user.suspicious || user.isBanned) {
+    return { eligible: false, reason: `❌ Your account is flagged for suspicious activity. You cannot withdraw.` };
+  }
+
   // Removed single-claim restriction to allow multiple purchases.
 
   // Check if there is a pending claim request
