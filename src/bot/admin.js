@@ -17,7 +17,7 @@ const logger = require('../utils/logger');
  */
 const handleAdminCommand = async (bot, msg) => {
   const telegramId = String(msg.from.id);
-  
+
   if (!isAdmin(telegramId)) {
     return bot.sendMessage(msg.chat.id, '❌ *Unauthorized:* You are not an administrator of this bot.', { parse_mode: 'Markdown' });
   }
@@ -37,9 +37,9 @@ const handleAdminCommand = async (bot, msg) => {
       const unverifiedUsers = totalUsers - verifiedUsers;
 
       const response = `👥 *User Database Statistics*\n\n` +
-                       `👤 Total Users: *${totalUsers}*\n` +
-                       `✅ Verified Users: *${verifiedUsers}*\n` +
-                       `⏳ Unverified Users: *${unverifiedUsers}*`;
+        `👤 Total Users: *${totalUsers}*\n` +
+        `✅ Verified Users: *${verifiedUsers}*\n` +
+        `⏳ Unverified Users: *${unverifiedUsers}*`;
       return bot.sendMessage(msg.chat.id, response, { parse_mode: 'Markdown' });
     } catch (err) {
       logger.error(`Admin users command error: ${err.message}`);
@@ -58,7 +58,7 @@ const handleAdminCommand = async (bot, msg) => {
     if (!broadcastText) {
       return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/broadcast_verified [Your message here]`', { parse_mode: 'Markdown' });
     }
-    
+
     bot.sendMessage(msg.chat.id, '📣 *Broadcast started.* Sending messages to verified users only...');
     runBroadcast(bot, msg.chat.id, broadcastText, 'verified');
     return;
@@ -70,7 +70,7 @@ const handleAdminCommand = async (bot, msg) => {
     if (!broadcastText) {
       return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/broadcast_unverified [Your message here]`', { parse_mode: 'Markdown' });
     }
-    
+
     bot.sendMessage(msg.chat.id, '📣 *Broadcast started.* Sending messages to unverified users only...');
     runBroadcast(bot, msg.chat.id, broadcastText, 'unverified');
     return;
@@ -82,7 +82,7 @@ const handleAdminCommand = async (bot, msg) => {
     if (!broadcastText) {
       return bot.sendMessage(msg.chat.id, '⚠️ *Usage:* `/broadcast [Your message here]`', { parse_mode: 'Markdown' });
     }
-    
+
     bot.sendMessage(msg.chat.id, '📣 *Broadcast started.* Sending messages to all users...');
     runBroadcast(bot, msg.chat.id, broadcastText, 'all');
     return;
@@ -97,7 +97,7 @@ const handleAdminCommand = async (bot, msg) => {
 
     const chatId = parts[1];
     const inviteLink = parts[parts.length - 1];
-    
+
     // Join the middle parts for the title
     let title = parts.slice(2, parts.length - 1).join(' ');
     // Remove wrapping quotes if present
@@ -300,7 +300,7 @@ const sendAdminDashboard = async (bot, chatId) => {
       { $group: { _id: null, total: { $sum: '$referrals' } } }
     ]);
     const totalClaims = await Claim.countDocuments({});
-    
+
     const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
 
     const activeRewards = await Reward.find({ active: true });
@@ -316,16 +316,16 @@ const sendAdminDashboard = async (bot, chatId) => {
     }
 
     const response = `👑 *Best Offer Refer Bot — Admin Dashboard*\n\n` +
-                     `👥 Total Users: *${totalUsers}*\n` +
-                     `✅ Verified Users: *${verifiedUsers}*\n` +
-                     `📈 Total Referrals: *${referralCount}*\n` +
-                     `🎁 Total Claims: *${totalClaims}*\n` +
-                     `📦 Total Stock Codes: *${totalStock}*\n\n` +
-                     `Use buttons below to navigate or run text commands like:\n` +
-                     `• \`/addpoints [TelegramID] [amount]\`\n` +
-                     `• \`/removepoints [TelegramID] [amount]\`\n` +
-                     `• \`/broadcast [message]\`\n` +
-                     `• \`/addchannel [chatId] [Title] [inviteLink]\``;
+      `👥 Total Users: *${totalUsers}*\n` +
+      `✅ Verified Users: *${verifiedUsers}*\n` +
+      `📈 Total Referrals: *${referralCount}*\n` +
+      `🎁 Total Claims: *${totalClaims}*\n` +
+      `📦 Total Stock Codes: *${totalStock}*\n\n` +
+      `Use buttons below to navigate or run text commands like:\n` +
+      `• \`/addpoints [TelegramID] [amount]\`\n` +
+      `• \`/removepoints [TelegramID] [amount]\`\n` +
+      `• \`/broadcast [message]\`\n` +
+      `• \`/addchannel [chatId] [Title] [inviteLink]\``;
 
     return bot.sendMessage(chatId, response, {
       parse_mode: 'Markdown',
@@ -344,7 +344,7 @@ const sendDetailedStats = async (bot, chatId, messageId = null) => {
   try {
     const totalUsers = await User.countDocuments({});
     const verifiedUsers = await User.countDocuments({ verified: true });
-    
+
     const pendingClaims = await Claim.countDocuments({ status: 'pending' });
     const approvedClaims = await Claim.countDocuments({ status: 'approved' });
     const rejectedClaims = await Claim.countDocuments({ status: 'rejected' });
@@ -353,18 +353,18 @@ const sendDetailedStats = async (bot, chatId, messageId = null) => {
     const activeRewards = await Reward.find({ active: true });
 
     let channelList = activeChannels.map(c => `• ${c.title} (${c.chatId})`).join('\n') || 'None';
-    let rewardList = activeRewards.map(r => `• ${r.title}: needs ${r.requiredRefs} refs`).join('\n') || 'None';
+    let rewardList = activeRewards.map(r => `• ${r.title}: needs ${r.requiredRefs} refs | 📦 Stock: ${r.codes ? r.codes.length : 0}`).join('\n') || 'None';
 
     const response = `📊 *Detailed Bot Statistics*\n\n` +
-                     `👥 *User Summary:*\n` +
-                     `  • Total registered: *${totalUsers}*\n` +
-                     `  • Verified users: *${verifiedUsers}* (${totalUsers ? Math.round((verifiedUsers/totalUsers)*100) : 0}%)\n\n` +
-                     `🎁 *Claims Summary:*\n` +
-                     `  • Pending claims: *${pendingClaims}*\n` +
-                     `  • Approved claims: *${approvedClaims}*\n` +
-                     `  • Rejected claims: *${rejectedClaims}*\n\n` +
-                     `📢 *Required Channels:*\n${channelList}\n\n` +
-                     `🏆 *Milestone Rewards:*\n${rewardList}`;
+      `👥 *User Summary:*\n` +
+      `  • Total registered: *${totalUsers}*\n` +
+      `  • Verified users: *${verifiedUsers}* (${totalUsers ? Math.round((verifiedUsers / totalUsers) * 100) : 0}%)\n\n` +
+      `🎁 *Claims Summary:*\n` +
+      `  • Pending claims: *${pendingClaims}*\n` +
+      `  • Approved claims: *${approvedClaims}*\n` +
+      `  • Rejected claims: *${rejectedClaims}*\n\n` +
+      `📢 *Required Channels:*\n${channelList}\n\n` +
+      `🏆 *Milestone Rewards:*\n${rewardList}`;
 
     const options = {
       parse_mode: 'Markdown',
@@ -397,7 +397,7 @@ const sendDetailedStats = async (bot, chatId, messageId = null) => {
 const sendPendingClaims = async (bot, chatId) => {
   try {
     const pending = await Claim.find({ status: 'pending' }).populate('userId').populate('rewardId');
-    
+
     if (pending.length === 0) {
       return bot.sendMessage(chatId, '🎉 *No pending claims!* All requests are up to date.', { parse_mode: 'Markdown' });
     }
@@ -412,14 +412,14 @@ const sendPendingClaims = async (bot, chatId) => {
 
       const username = user.username ? `@${user.username}` : 'No username';
       let text = `👤 *User:* ${user.firstName} (${username})\n` +
-                 `🆔 *Telegram ID:* \`${user.telegramId}\`\n` +
-                 `👥 *Current Referrals:* *${user.referrals}*\n` +
-                 `🎁 *Reward:* *${reward.title}* (Needs ${reward.requiredRefs} refs)\n` +
-                 `📅 *Requested:* ${new Date(claim.claimedAt).toLocaleString()}\n`;
+        `🆔 *Telegram ID:* \`${user.telegramId}\`\n` +
+        `👥 *Current Referrals:* *${user.referrals}*\n` +
+        `🎁 *Reward:* *${reward.title}* (Needs ${reward.requiredRefs} refs)\n` +
+        `📅 *Requested:* ${new Date(claim.claimedAt).toLocaleString()}\n`;
 
       if (user.suspicious) {
         text += `🚨 *SUSPICIOUS ACCOUNT!*\n` +
-                `⚠️ *Reason:* _${user.flaggedReason || 'High frequency of referrals'}_\n`;
+          `⚠️ *Reason:* _${user.flaggedReason || 'High frequency of referrals'}_\n`;
       }
 
       text += `━━━━━━━━━━━━━━`;
@@ -443,25 +443,25 @@ const sendPendingClaims = async (bot, chatId) => {
 const handleExportCSV = async (bot, chatId) => {
   try {
     bot.sendMessage(chatId, '⚙️ Generating CSV file from database...');
-    
+
     const users = await User.find({}).populate('referredBy');
     const csvContent = exportUsersToCSV(users);
-    
+
     const scratchDir = path.join(__dirname, '../../scratch');
     if (!fs.existsSync(scratchDir)) {
       fs.mkdirSync(scratchDir, { recursive: true });
     }
-    
+
     const filename = `users_export_${Date.now()}.csv`;
     const filePath = path.join(scratchDir, filename);
-    
+
     fs.writeFileSync(filePath, csvContent, 'utf-8');
-    
+
     await bot.sendDocument(chatId, filePath, {}, {
       filename: `users_database_${new Date().toISOString().slice(0, 10)}.csv`,
       contentType: 'text/csv'
     });
-    
+
     // Clean up file
     fs.unlinkSync(filePath);
     logger.info(`CSV exported and sent to admin: ${chatId}`);
@@ -501,8 +501,8 @@ const runBroadcast = async (bot, adminChatId, text, target = 'all') => {
     }
 
     const report = `📢 *Broadcast Completed (${target})!*\n\n` +
-                   `✅ Delivered: *${successCount}*\n` +
-                   `❌ Failed (Blocked/Deactivated): *${failCount}*`;
+      `✅ Delivered: *${successCount}*\n` +
+      `❌ Failed (Blocked/Deactivated): *${failCount}*`;
     bot.sendMessage(adminChatId, report, { parse_mode: 'Markdown' })
       .catch(err => logger.error(`Failed to send broadcast report: ${err.message}`));
   } catch (err) {
@@ -524,11 +524,11 @@ const sendSettingsDashboard = async (bot, chatId, messageId = null) => {
     }
 
     const response = `⚙️ *Global Bot Settings*\n\n` +
-                     `💬 Support Username: *${settings.supportUsername}*\n` +
-                     `🤖 Bot Status: *${settings.botStatus ? 'ONLINE' : 'OFFLINE'}*\n\n` +
-                     `Admin Commands to update settings:\n` +
-                     `• Set Support: Send \`/setsupport <username>\` (e.g. \`/setsupport @MySupport\`)\n` +
-                     `• Toggle Status: Send \`/togglestatus\``;
+      `💬 Support Username: *${settings.supportUsername}*\n` +
+      `🤖 Bot Status: *${settings.botStatus ? 'ONLINE' : 'OFFLINE'}*\n\n` +
+      `Admin Commands to update settings:\n` +
+      `• Set Support: Send \`/setsupport <username>\` (e.g. \`/setsupport @MySupport\`)\n` +
+      `• Toggle Status: Send \`/togglestatus\``;
 
     const options = {
       parse_mode: 'Markdown',
@@ -561,7 +561,7 @@ const sendSettingsDashboard = async (bot, chatId, messageId = null) => {
 const sendRewardsManagement = async (bot, chatId, messageId = null) => {
   try {
     const rewards = await Reward.find({ active: true }).sort({ requiredRefs: 1 });
-    
+
     let text = `🎁 *Reward Milestones Management*\n\n`;
     if (rewards.length === 0) {
       text += `🫙 No active milestones configured. Click button below to add one.`;
@@ -599,7 +599,7 @@ const sendRewardsManagement = async (bot, chatId, messageId = null) => {
 const sendChannelsManagement = async (bot, chatId, messageId = null) => {
   try {
     const channels = await Channel.find({ active: true });
-    
+
     let text = `📺 *Required Channels Management (Force Join)*\n\n`;
     if (channels.length === 0) {
       text += `🫙 No active required channels. Click button below to add one.`;
@@ -666,9 +666,9 @@ const handleAdminState = async (bot, msg, user) => {
       if (!text) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a description:');
       }
-      
+
       const { requiredRefs, title } = user.adminTempData;
-      
+
       // Save to database
       let reward = await Reward.findOne({ requiredRefs });
       if (reward) {
@@ -692,7 +692,7 @@ const handleAdminState = async (bot, msg, user) => {
       await user.save();
 
       await bot.sendMessage(chatId, `✅ *Reward Milestone Configured!*\n\n• Milestone: *${requiredRefs}* refs\n• Title: *${title}*\n• Description: *${text}*`, { parse_mode: 'Markdown' });
-      
+
       // Return to Rewards Management panel
       return sendRewardsManagement(bot, chatId);
     }
@@ -701,9 +701,9 @@ const handleAdminState = async (bot, msg, user) => {
       if (!text) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter at least one code:');
       }
-      
+
       const { rewardId } = user.adminTempData;
-      
+
       let reward = await Reward.findById(rewardId);
       if (!reward) {
         user.adminState = null;
@@ -711,12 +711,12 @@ const handleAdminState = async (bot, msg, user) => {
         await user.save();
         return bot.sendMessage(chatId, '❌ *Error:* Reward not found. Resetting state.');
       }
-      
+
       const codesToAdd = text.split(/[\n,]+/).map(c => c.trim()).filter(c => c.length > 0);
       if (codesToAdd.length === 0) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Could not parse codes. Try again:');
       }
-      
+
       reward.codes.push(...codesToAdd);
       await reward.save();
 
@@ -727,7 +727,7 @@ const handleAdminState = async (bot, msg, user) => {
       await user.save();
 
       await bot.sendMessage(chatId, `✅ *Stock Codes Added to Reward!*\n\n• Reward: *${reward.title}*\n• Codes Added: *${codesToAdd.length}*\n• Total Stock: *${reward.codes.length}*`, { parse_mode: 'Markdown' });
-      
+
       return sendAdminDashboard(bot, chatId);
     }
 
@@ -736,9 +736,9 @@ const handleAdminState = async (bot, msg, user) => {
       if (isNaN(amount) || amount <= 0) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid positive number:');
       }
-      
+
       const { rewardId } = user.adminTempData;
-      
+
       let reward = await Reward.findById(rewardId);
       if (!reward) {
         user.adminState = null;
@@ -746,11 +746,11 @@ const handleAdminState = async (bot, msg, user) => {
         await user.save();
         return bot.sendMessage(chatId, '❌ *Error:* Reward not found. Resetting state.');
       }
-      
+
       if (reward.codes.length < amount) {
         return bot.sendMessage(chatId, `⚠️ *Insufficient Stock:* This reward only has ${reward.codes.length} codes available. Please enter a smaller number:`);
       }
-      
+
       // Remove the specified amount of codes
       const withdrawnCodes = reward.codes.splice(0, amount);
       await reward.save();
@@ -768,7 +768,7 @@ const handleAdminState = async (bot, msg, user) => {
       }
 
       await bot.sendMessage(chatId, `✅ *Successfully Withdrawn ${amount} Codes!*\n\n• Reward: *${reward.title}*\n• Remaining Stock: *${reward.codes.length}*\n\n*Withdrawn Codes:*\n\`${preview}\``, { parse_mode: 'Markdown' });
-      
+
       return sendAdminDashboard(bot, chatId);
     }
 
@@ -798,9 +798,9 @@ const handleAdminState = async (bot, msg, user) => {
       if (!text.startsWith('http://') && !text.startsWith('https://')) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid URL starting with http:// or https://:');
       }
-      
+
       const { chatId: channelChatId, title } = user.adminTempData;
-      
+
       let channel = await Channel.findOne({ chatId: channelChatId });
       if (channel) {
         channel.title = title;
@@ -824,7 +824,7 @@ const handleAdminState = async (bot, msg, user) => {
       await user.save();
 
       await bot.sendMessage(chatId, `✅ *Channel Added to Force Join!*\n\n• ID: \`${channelChatId}\`\n• Title: *${title}*\n• Link: ${text}`, { parse_mode: 'Markdown' });
-      
+
       // Return to Channel Management panel
       return sendChannelsManagement(bot, chatId);
     }
@@ -845,9 +845,9 @@ const handleAdminState = async (bot, msg, user) => {
       if (isNaN(amount) || amount <= 0) {
         return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid positive number:');
       }
-      
+
       const { targetUserId } = user.adminTempData;
-      
+
       const targetUser = await User.findOne({ telegramId: targetUserId });
       if (!targetUser) {
         user.adminState = null;

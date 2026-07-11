@@ -373,6 +373,19 @@
       return hash.toString(16); // Hex representation of 32-bit hash
     }
 
+    function getDeviceToken() {
+      try {
+        let token = localStorage.getItem('bot_device_token');
+        if (!token) {
+          token = 'dev_' + Date.now().toString(36) + Math.random().toString(36).substring(2);
+          localStorage.setItem('bot_device_token', token);
+        }
+        return token;
+      } catch (e) {
+        return null;
+      }
+    }
+
     // Initialize Telegram WebApp
     if (window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.ready();
@@ -427,6 +440,7 @@
             token,
             initData: (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp.initData : '',
             fingerprint,
+            deviceToken: getDeviceToken(),
             deviceSpecs
           })
         });

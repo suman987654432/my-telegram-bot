@@ -67,7 +67,7 @@ router.get('/verify', (req, res) => {
  * Process security verification, perform unique IP check, and activate the user.
  */
 router.post('/api/verify', async (req, res) => {
-  const { userId, token, initData, fingerprint, deviceSpecs } = req.body;
+  const { userId, token, initData, fingerprint, deviceToken, deviceSpecs } = req.body;
 
   if (!userId || !token) {
     return res.status(400).json({ error: 'Missing user ID or verification token.' });
@@ -136,12 +136,39 @@ router.post('/api/verify', async (req, res) => {
           return res.status(400).json({ error: 'Device already verified: This device has already been used to verify a Telegram account.' });
         }
       }
+
+      // Check LocalStorage Device Token uniqueness
+      if (deviceToken) {
+        const duplicateTokenUser = await User.findOne({ deviceToken: deviceToken, verified: true });
+        if (duplicateTokenUser && duplicateTokenUser.telegramId !== userId) {
+          logger.warn(`⚠️ Device Token Blocked: User ${userId} tried to verify using device token ${deviceToken} which is already registered to user ${duplicateTokenUser.telegramId}`);
+          return res.status(400).json({ error: 'Device already verified: This device has already been used to verify a Telegram account.' });
+        }
+      }
+      
+      // Strict Anti-Cheat: Timezone & Emulator Check
+      if (deviceSpecs) {
+        // Enforce India Timezone to block VPNs and randomizing Clones
+        if (deviceSpecs.timezone && deviceSpecs.timezone !== 'Asia/Kolkata') {
+           logger.warn(`⚠️ Timezone Blocked: User ${userId} has suspicious timezone: ${deviceSpecs.timezone}`);
+           return res.status(400).json({ error: 'Verification blocked: VPNs or Clone apps are strictly prohibited.' });
+        }
+        
+        // Block obvious missing data from clone apps
+        if (deviceSpecs.platform === 'unknown' || deviceSpecs.userAgent === 'unknown') {
+           logger.warn(`⚠️ Clone App Blocked: User ${userId} missing device specs.`);
+           return res.status(400).json({ error: 'Verification blocked: Invalid device environment detected.' });
+        }
+      }
     }
 
     // Save Device Details and IP
     user.ipAddress = ip || 'local';
     if (fingerprint) {
       user.deviceFingerprint = fingerprint;
+    }
+    if (deviceToken) {
+      user.deviceToken = deviceToken;
     }
     if (deviceSpecs) {
       user.deviceSpecs = {

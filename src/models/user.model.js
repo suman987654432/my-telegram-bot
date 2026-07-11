@@ -62,6 +62,11 @@ const userSchema = new mongoose.Schema({
     default: null,
     index: true,
   },
+  deviceToken: {
+    type: String,
+    default: null,
+    index: true,
+  },
   deviceSpecs: {
     ram: { type: String, default: null },
     screen: { type: String, default: null },
