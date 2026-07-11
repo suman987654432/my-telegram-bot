@@ -148,8 +148,8 @@ router.post('/api/verify', async (req, res) => {
       
       // Strict Anti-Cheat: Timezone & Emulator Check
       if (deviceSpecs) {
-        // Enforce India Timezone to block VPNs and randomizing Clones
-        if (deviceSpecs.timezone && deviceSpecs.timezone !== 'Asia/Kolkata') {
+        // Enforce India Timezone to block VPNs and randomizing Clones (Allow Kolkata and Calcutta)
+        if (deviceSpecs.timezone && deviceSpecs.timezone !== 'Asia/Kolkata' && deviceSpecs.timezone !== 'Asia/Calcutta') {
            logger.warn(`⚠️ Timezone Blocked: User ${userId} has suspicious timezone: ${deviceSpecs.timezone}`);
            return res.status(400).json({ error: 'Verification blocked: VPNs or Clone apps are strictly prohibited.' });
         }
