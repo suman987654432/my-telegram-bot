@@ -426,6 +426,59 @@ const sendDetailedStats = async (bot, chatId, messageId = null) => {
 };
 
 /**
+ * Sends Top 10 Referral Leaderboard
+ */
+const sendLeaderboard = async (bot, chatId, messageId = null) => {
+  try {
+    const topUsers = await User.find({ referrals: { $gt: 0 } })
+      .sort({ referrals: -1 })
+      .limit(10)
+      .lean();
+
+    if (topUsers.length === 0) {
+      const emptyMsg = '🫙 *No one has any referrals yet.*';
+      if (messageId) {
+        return bot.editMessageText(emptyMsg, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]] } });
+      }
+      return bot.sendMessage(chatId, emptyMsg, { parse_mode: 'Markdown' });
+    }
+
+    let response = `🏆 *Top 10 Referrals Leaderboard*\n\n`;
+    const medals = ['🥇', '🥈', '🥉'];
+    
+    topUsers.forEach((u, index) => {
+      const medal = index < 3 ? medals[index] : '🏅';
+      const name = u.firstName || 'Unknown';
+      const username = u.username ? `(@${u.username})` : '';
+      response += `${medal} *${index + 1}.* ${name} ${username}\n      └ 👥 Referrals: *${u.referrals}*\n\n`;
+    });
+
+    const options = {
+      parse_mode: 'Markdown',
+      reply_markup: {
+        inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
+      }
+    };
+
+    if (messageId) {
+      return bot.editMessageText(response, {
+        chat_id: chatId,
+        message_id: messageId,
+        ...options
+      });
+    } else {
+      return bot.sendMessage(chatId, response, options);
+    }
+  } catch (err) {
+    logger.error(`Leaderboard error: ${err.message}`);
+    if (messageId) {
+      return bot.editMessageText('❌ Failed to load leaderboard.', { chat_id: chatId, message_id: messageId });
+    }
+    return bot.sendMessage(chatId, '❌ Failed to load leaderboard.');
+  }
+};
+
+/**
  * Sends a list of pending claim requests with Approve/Reject inline buttons.
  */
 const sendPendingClaims = async (bot, chatId) => {
@@ -917,6 +970,7 @@ module.exports = {
   handleAdminCommand,
   sendAdminDashboard,
   sendDetailedStats,
+  sendLeaderboard,
   sendPendingClaims,
   handleExportCSV,
   sendSettingsDashboard,

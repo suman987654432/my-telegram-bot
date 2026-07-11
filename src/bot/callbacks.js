@@ -325,6 +325,8 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
 
         case 'admin_stats':
           return admin.sendDetailedStats(bot, message.chat.id, message.message_id);
+        case 'admin_leaderboard':
+          return admin.sendLeaderboard(bot, message.chat.id, message.message_id);
         case 'admin_pending_claims':
           return admin.sendPendingClaims(bot, message.chat.id);
         case 'admin_export_csv':

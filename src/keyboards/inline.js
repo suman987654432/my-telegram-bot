@@ -144,6 +144,7 @@ const getAdminKeyboard = (settings) => {
     reply_markup: {
       inline_keyboard: [
         [{ text: '📊 Stats', callback_data: 'admin_stats' }],
+        [{ text: '🏆 Top 10 Leaderboard', callback_data: 'admin_leaderboard' }],
         [{ text: '🎁 Manage Rewards', callback_data: 'admin_manage_rewards' }],
         [{ text: '📥 Add Stock', callback_data: 'admin_add_stock' }],
         [{ text: '📤 Withdraw Stock', callback_data: 'admin_withdraw_stock' }],
