@@ -12,14 +12,14 @@ if (config.NODE_ENV === 'production' && config.WEBHOOK_URL) {
   // Webhook mode: do not run long polling
   bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, { polling: false });
   const webhookPath = `${config.WEBHOOK_URL}/bot${config.TELEGRAM_BOT_TOKEN}`;
-  
+
   bot.setWebHook(webhookPath)
     .then(() => logger.info(`🚀 Telegram Webhook configured to route to: ${webhookPath}`))
     .catch((err) => logger.error(`❌ Telegram Webhook initialization error: ${err.message}`));
 } else {
   // Polling mode for local testing
   bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, { polling: true });
-  
+
   bot.deleteWebHook()
     .then(() => logger.info('🚀 Local development polling enabled. Deleted active webhooks.'))
     .catch((err) => logger.error(`❌ Telegram deleteWebHook error: ${err.message}`));
@@ -54,7 +54,7 @@ bot.on('message', async (msg) => {
       '/addpoints',
       '/removepoints'
     ];
-    
+
     const cmd = msg.text.split(/\s+/)[0];
     if (adminCmds.includes(cmd)) {
       return handleAdminCommand(bot, msg);
@@ -73,7 +73,7 @@ bot.on('callback_query', async (query) => {
 
   // Anti-spam middleware checks for button clicks
   if (checkRateLimit(telegramId, bot)) {
-    return bot.answerCallbackQuery(query.id, { text: '⚠️ You are clicking too fast! Please slow down.', show_alert: true }).catch(()=>{});
+    return bot.answerCallbackQuery(query.id, { text: '⚠️ You are clicking too fast! Please slow down.', show_alert: true }).catch(() => { });
   }
 
   return handleCallbackQuery(bot, query);

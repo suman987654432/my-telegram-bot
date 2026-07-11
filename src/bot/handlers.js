@@ -115,8 +115,8 @@ const handleMessage = async (bot, msg) => {
       const verifyLink = `${domain}/verify?id=${user.telegramId}&token=${user.verificationToken}`;
 
       const verifyMsg = `🔐 *Final Step: Verify your account*\n\n` +
-                        `This confirms you are a genuine user and prevents abuse.\n\n` +
-                        `Click the button below to complete the verification:`;
+        `This confirms you are a genuine user and prevents abuse.\n\n` +
+        `Click the button below to complete the verification:`;
 
       const isProduction = !!config.WEBHOOK_URL;
       const verifyButton = isProduction
@@ -283,8 +283,37 @@ const sendWithdrawCenter = async (bot, chatId, user) => {
   }
 };
 
+/**
+ * Handle chat_member updates (Penalty for leaving channel)
+ */
+const handleChatMember = async (bot, update) => {
+  try {
+    const { chat, new_chat_member } = update;
+    
+    if (new_chat_member && (new_chat_member.status === 'left' || new_chat_member.status === 'kicked')) {
+      const telegramId = String(new_chat_member.user.id);
+      
+      const user = await User.findOne({ telegramId });
+      if (user) {
+        const channel = await Channel.findOne({ chatId: String(chat.id), active: true });
+        
+        if (channel) {
+          // Deduct 1 point from the user who left
+          if (user.referrals > 0) {
+            user.referrals -= 1;
+          }
+          await user.save();
+        }
+      }
+    }
+  } catch (err) {
+    logger.error(`Error in handleChatMember: ${err.message}`);
+  }
+};
+
 module.exports = {
   handleMessage,
+  handleChatMember,
   sendReferralsList,
   sendWithdrawCenter,
 };
