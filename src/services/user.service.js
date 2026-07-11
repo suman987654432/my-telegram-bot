@@ -144,7 +144,8 @@ const getReferrals = async (userObjectId, page = 1, limit = 5) => {
     const referrals = await User.find(query)
       .sort({ verifiedAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     return {
       referrals,

@@ -11,7 +11,7 @@ module.exports = {
       exec_mode: 'cluster', // change to 'cluster' only in webhook mode
       
       watch: false,
-      max_memory_restart: '300M',
+      max_memory_restart: '1G',
       
       env: {
         NODE_ENV: 'development',

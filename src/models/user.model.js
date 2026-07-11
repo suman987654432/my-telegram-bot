@@ -96,4 +96,7 @@ const userSchema = new mongoose.Schema({
   },
 });
 
+// Compound index for optimizing anti-farming query in verifyUser
+userSchema.index({ referredBy: 1, verified: 1, verifiedAt: -1 });
+
 module.exports = mongoose.model('User', userSchema);

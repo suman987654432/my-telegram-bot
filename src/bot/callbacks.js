@@ -231,6 +231,16 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
         return bot.sendMessage(message.chat.id, '✍️ *Add Codes to Reward*\n\nEnter the code(s) you want to add to this reward.\nTo add multiple codes at once, separate them with a comma (e.g., `CODE1, CODE2, CODE3`):', { parse_mode: 'Markdown' });
       }
 
+      // Start Withdraw Codes Wizard
+      if (data.startsWith('admin_withdraw_codes_from_')) {
+        const rewardId = data.replace('admin_withdraw_codes_from_', '');
+        user.adminState = 'awaiting_withdraw_codes_amount';
+        user.adminTempData = { rewardId };
+        await user.save();
+        return bot.sendMessage(message.chat.id, '📤 *Withdraw Codes*\n\nHow many codes do you want to withdraw from this reward?\nPlease enter a valid number (e.g., `5`):', { parse_mode: 'Markdown' });
+      }
+
+
       // Approve claim
       if (data.startsWith('admin_claim_approve_')) {
         const claimId = data.replace('admin_claim_approve_', '');
@@ -384,6 +394,35 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
             });
           } catch (err) {
             logger.error(`Stock management error: ${err.message}`);
+          }
+          return;
+        case 'admin_withdraw_stock':
+          try {
+            const rewards = await Reward.find({ active: true });
+            let text = `📤 *Withdraw Stock Management*\n\nSelect a reward to withdraw codes from it:`;
+            let inline_keyboard = [];
+            
+            if (rewards.length > 0) {
+              rewards.forEach(r => {
+                inline_keyboard.push([{ 
+                  text: `📤 ${r.title} (Stock: ${r.codes.length})`, 
+                  callback_data: `admin_withdraw_codes_from_${r._id}` 
+                }]);
+              });
+            } else {
+              text += `\n\n🫙 No rewards found. Create a reward first from "Manage Rewards".`;
+            }
+            
+            inline_keyboard.push([{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]);
+
+            await bot.editMessageText(text, {
+              chat_id: message.chat.id,
+              message_id: message.message_id,
+              parse_mode: 'Markdown',
+              reply_markup: { inline_keyboard }
+            });
+          } catch (err) {
+            logger.error(`Withdraw stock management error: ${err.message}`);
           }
           return;
         case 'admin_broadcast_verified':

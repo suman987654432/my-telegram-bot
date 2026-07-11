@@ -303,6 +303,12 @@ const sendAdminDashboard = async (bot, chatId) => {
     
     const referralCount = totalReferrals[0] ? totalReferrals[0].total : 0;
 
+    const activeRewards = await Reward.find({ active: true });
+    let totalStock = 0;
+    activeRewards.forEach(r => {
+      if (r.codes) totalStock += r.codes.length;
+    });
+
     let settings = await Settings.findOne({});
     if (!settings) {
       settings = new Settings({});
@@ -313,7 +319,8 @@ const sendAdminDashboard = async (bot, chatId) => {
                      `👥 Total Users: *${totalUsers}*\n` +
                      `✅ Verified Users: *${verifiedUsers}*\n` +
                      `📈 Total Referrals: *${referralCount}*\n` +
-                     `🎁 Total Claims: *${totalClaims}*\n\n` +
+                     `🎁 Total Claims: *${totalClaims}*\n` +
+                     `📦 Total Stock Codes: *${totalStock}*\n\n` +
                      `Use buttons below to navigate or run text commands like:\n` +
                      `• \`/addpoints [TelegramID] [amount]\`\n` +
                      `• \`/removepoints [TelegramID] [amount]\`\n` +
@@ -720,6 +727,47 @@ const handleAdminState = async (bot, msg, user) => {
       await user.save();
 
       await bot.sendMessage(chatId, `✅ *Stock Codes Added to Reward!*\n\n• Reward: *${reward.title}*\n• Codes Added: *${codesToAdd.length}*\n• Total Stock: *${reward.codes.length}*`, { parse_mode: 'Markdown' });
+      
+      return sendAdminDashboard(bot, chatId);
+    }
+
+    if (user.adminState === 'awaiting_withdraw_codes_amount') {
+      const amount = parseInt(text, 10);
+      if (isNaN(amount) || amount <= 0) {
+        return bot.sendMessage(chatId, '⚠️ *Invalid input:* Please enter a valid positive number:');
+      }
+      
+      const { rewardId } = user.adminTempData;
+      
+      let reward = await Reward.findById(rewardId);
+      if (!reward) {
+        user.adminState = null;
+        user.adminTempData = {};
+        await user.save();
+        return bot.sendMessage(chatId, '❌ *Error:* Reward not found. Resetting state.');
+      }
+      
+      if (reward.codes.length < amount) {
+        return bot.sendMessage(chatId, `⚠️ *Insufficient Stock:* This reward only has ${reward.codes.length} codes available. Please enter a smaller number:`);
+      }
+      
+      // Remove the specified amount of codes
+      const withdrawnCodes = reward.codes.splice(0, amount);
+      await reward.save();
+
+      // Clear admin state
+      user.adminState = null;
+      user.adminTempData = {};
+      user.markModified('adminTempData');
+      await user.save();
+
+      // Format withdrawn codes to show to admin (if too many, maybe don't show all or just send as document, but here we just show count or preview)
+      let preview = withdrawnCodes.slice(0, 10).join(', ');
+      if (withdrawnCodes.length > 10) {
+        preview += ` ... and ${withdrawnCodes.length - 10} more.`;
+      }
+
+      await bot.sendMessage(chatId, `✅ *Successfully Withdrawn ${amount} Codes!*\n\n• Reward: *${reward.title}*\n• Remaining Stock: *${reward.codes.length}*\n\n*Withdrawn Codes:*\n\`${preview}\``, { parse_mode: 'Markdown' });
       
       return sendAdminDashboard(bot, chatId);
     }

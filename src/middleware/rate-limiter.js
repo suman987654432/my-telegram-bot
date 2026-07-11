@@ -36,19 +36,21 @@ const checkRateLimit = (telegramId, bot) => {
 
   userRequests.set(userId, now);
   
-  // Cleanup map periodically to prevent memory leaks
-  if (userRequests.size > 10000) {
-    const threshold = now - 60000;
-    for (const [key, value] of userRequests.entries()) {
-      if (value < threshold) {
-        userRequests.delete(key);
-        warningCooldowns.delete(key);
-      }
-    }
-  }
-  
   return false;
 };
+
+// Cleanup map periodically (every 1 minute) to prevent memory leaks and event loop blocking
+setInterval(() => {
+  const now = Date.now();
+  const threshold = now - 60000;
+  for (const [key, value] of userRequests.entries()) {
+    if (value < threshold) {
+      userRequests.delete(key);
+      warningCooldowns.delete(key);
+    }
+  }
+}, 60000);
+
 
 module.exports = {
   checkRateLimit,
