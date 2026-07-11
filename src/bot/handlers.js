@@ -267,10 +267,10 @@ const sendWithdrawCenter = async (bot, chatId, user) => {
     const totalWithdrawn = await Claim.countDocuments({ userId: user._id, status: 'approved' });
 
     let msg = `💰 *Withdraw Center*\n` +
-      `━━━━━━━━━━━━━━\n\n` +
+      `━━━━━━━━━━━━━━\n` +
       `👤 Your referrals: *${user.referrals}*\n` +
-      `📦 Total rewards claimed: *${totalWithdrawn}*\n\n` +
-      `━━━━━━━━━━━━━━\n\n` +
+      `📦 Total rewards claimed: *${totalWithdrawn}*\n` +
+      `━━━━━━━━━━━━━━\n` +
       `Click a milestone below to claim or view details:`;
 
     return bot.sendMessage(chatId, msg, {

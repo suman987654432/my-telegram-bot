@@ -162,10 +162,10 @@ const handleCallbackQuery = async (bot, callbackQuery) => {
         const totalWithdrawn = await Claim.countDocuments({ userId: user._id, status: 'approved' });
 
         const msg = `💰 *Withdraw Center*\n` +
-          `━━━━━━━━━━━━━━\n\n` +
+          `━━━━━━━━━━━━━━\n` +
           `👤 Your referrals: *${user.referrals}*\n` +
-          `📦 Total rewards claimed: *${totalWithdrawn}*\n\n` +
-          `━━━━━━━━━━━━━━\n\n` +
+          `📦 Total rewards claimed: *${totalWithdrawn}*\n` +
+          `━━━━━━━━━━━━━━\n` +
           `Click a milestone below to claim or view details:`;
 
         await bot.editMessageText(msg, {
