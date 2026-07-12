@@ -85,21 +85,6 @@ const verifyUser = async (bot, telegramId) => {
       if (referrer) {
         referrer.referrals += 1;
         
-        // Anti-farming check: Limit to max 3 verified referrals per 2 minutes
-        const recentReferralsCount = await User.countDocuments({
-          referredBy: referrer._id,
-          verified: true,
-          verifiedAt: { $gte: new Date(Date.now() - 2 * 60 * 1000) }
-        });
-        
-        if (recentReferralsCount >= 3) {
-          referrer.suspicious = true;
-          referrer.isBanned = true;
-          referrer.flaggedReason = `Speed limit exceeded: ${recentReferralsCount} referrals verified within 2 minutes. Auto-Banned.`;
-          logger.warn(`🚨 Referrer ${referrer.telegramId} marked suspicious and AUTO-BANNED. Verified ${recentReferralsCount} users in 2 minutes.`);
-          bot.sendMessage(referrer.telegramId, '⛔ *Your account has been automatically banned for suspicious referral farming activity.*', { parse_mode: 'Markdown' }).catch(()=>{});
-        }
-
         await referrer.save();
 
         logger.info(`🎉 Referrer ${referrer.telegramId} credited for referral of ${telegramId}`);
