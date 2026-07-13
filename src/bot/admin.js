@@ -148,7 +148,7 @@ const handleAdminCommand = async (bot, msg) => {
       }
       await channel.save();
       cacheService.invalidateCache();
-      return bot.sendMessage(msg.chat.id, `✅ *Channel Added:* ${title} (${chatId}) is now required for force join.`, { parse_mode: 'Markdown' });
+      return bot.sendMessage(msg.chat.id, `✅ <b>Channel Added:</b> ${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')} (<code>${chatId}</code>) is now required for force join.`, { parse_mode: 'HTML' });
     } catch (err) {
       logger.error(`Add channel error: ${err.message}`);
       return bot.sendMessage(msg.chat.id, `❌ *Error adding channel:* ${err.message}`, { parse_mode: 'Markdown' });
@@ -687,14 +687,14 @@ const sendChannelsManagement = async (bot, chatId, messageId = null) => {
   try {
     const channels = await Channel.find({ active: true });
 
-    let text = `📺 *Required Channels Management (Force Join)*\n\n`;
+    let text = `📺 <b>Required Channels Management (Force Join)</b>\n\n`;
     if (channels.length === 0) {
       text += `🫙 No active required channels. Click button below to add one.`;
     } else {
       text += `Current required channels:\n\n`;
       channels.forEach((c, index) => {
-        text += `*${index + 1}.* \`${c.chatId}\` - *${c.title}*\n`;
-        text += `   [Invite Link](${c.inviteLink})\n\n`;
+        text += `<b>${index + 1}.</b> <code>${c.chatId}</code> - <b>${c.title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</b>\n`;
+        text += `   <a href="${c.inviteLink}">Invite Link</a>\n\n`;
       });
     }
 
@@ -707,7 +707,7 @@ const sendChannelsManagement = async (bot, chatId, messageId = null) => {
     inline_keyboard.push([{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]);
 
     const options = {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard }
     };
 
@@ -910,7 +910,7 @@ const handleAdminState = async (bot, msg, user) => {
       user.markModified('adminTempData');
       await user.save();
 
-      await bot.sendMessage(chatId, `✅ *Channel Added to Force Join!*\n\n• ID: \`${channelChatId}\`\n• Title: *${title}*\n• Link: ${text}`, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, `✅ <b>Channel Added to Force Join!</b>\n\n• ID: <code>${channelChatId}</code>\n• Title: <b>${title.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</b>\n• Link: ${text}`, { parse_mode: 'HTML' });
 
       // Return to Channel Management panel
       return sendChannelsManagement(bot, chatId);
