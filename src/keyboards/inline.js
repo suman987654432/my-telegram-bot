@@ -9,21 +9,30 @@ const Claim = require('../models/claim.model');
  */
 const getForceJoinKeyboard = (channels) => {
   const keyboard = [];
+  let currentRow = [];
 
-  // Add a button for each channel
+  // Add a button for each channel, 2 per row
   channels.forEach((channel, index) => {
-    keyboard.push([
-      {
-        text: `📢 Join Channel ${index + 1}: ${channel.title}`,
-        url: channel.inviteLink,
-      },
-    ]);
+    currentRow.push({
+      text: `📢 Join Channel ${index + 1}`,
+      url: channel.inviteLink,
+    });
+
+    if (currentRow.length === 2) {
+      keyboard.push(currentRow);
+      currentRow = [];
+    }
   });
+
+  // Push any remaining buttons in the last row
+  if (currentRow.length > 0) {
+    keyboard.push(currentRow);
+  }
 
   // Add the verification check button
   keyboard.push([
     {
-      text: '✅ I\'ve Joined — Verify',
+      text: '✅ I\'ve Joined All',
       callback_data: 'verify_channels',
     },
   ]);
@@ -87,24 +96,38 @@ const getWithdrawKeyboard = (user, rewards, userClaims) => {
  */
 const getAdminKeyboard = (settings) => {
   const deviceVerifyText = settings && settings.deviceVerify === false
-    ? '🔴 Device Verify: OFF — tap to enable'
-    : '🟢 Device Verify: ON — tap to disable';
+    ? '🔴 Device Verify: OFF'
+    : '🟢 Device Verify: ON';
 
   return {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '📊 Stats', callback_data: 'admin_stats' }],
-        [{ text: '🏆 Top 10 Leaderboard', callback_data: 'admin_leaderboard' }],
-        [{ text: '🎁 Manage Rewards', callback_data: 'admin_manage_rewards' }],
-        [{ text: '📥 Add Stock', callback_data: 'admin_add_stock' }],
-        [{ text: '📤 Withdraw Stock', callback_data: 'admin_withdraw_stock' }],
-        [{ text: '💰 Add Points to User', callback_data: 'admin_add_points_start' }],
-        [{ text: '📺 Manage Channels', callback_data: 'admin_manage_channels' }],
-        [{ text: '📢 Broadcast: Verified Only', callback_data: 'admin_broadcast_verified' }],
-        [{ text: '📢 Broadcast: All Users', callback_data: 'admin_broadcast_all' }],
-        [{ text: '📢 Broadcast: Non-Verified Only', callback_data: 'admin_broadcast_unverified' }],
-        [{ text: '⚙️ Settings', callback_data: 'admin_settings' }],
-        [{ text: deviceVerifyText, callback_data: 'admin_toggle_device_verify' }]
+        [
+          { text: '📊 Stats', callback_data: 'admin_stats' },
+          { text: '🏆 Leaderboard', callback_data: 'admin_leaderboard' }
+        ],
+        [
+          { text: '🎁 Rewards', callback_data: 'admin_manage_rewards' },
+          { text: '📺 Channels', callback_data: 'admin_manage_channels' }
+        ],
+        [
+          { text: '📥 Add Stock', callback_data: 'admin_add_stock' },
+          { text: '📤 Withdraw', callback_data: 'admin_withdraw_stock' }
+        ],
+        [
+          { text: '💰 Add Points', callback_data: 'admin_add_points_start' },
+          { text: '⚙️ Settings', callback_data: 'admin_settings' }
+        ],
+        [
+          { text: '📢 Cast: Verified', callback_data: 'admin_broadcast_verified' },
+          { text: '📢 Cast: All', callback_data: 'admin_broadcast_all' }
+        ],
+        [
+          { text: '📢 Cast: Unverified', callback_data: 'admin_broadcast_unverified' }
+        ],
+        [
+          { text: deviceVerifyText, callback_data: 'admin_toggle_device_verify' }
+        ]
       ]
     }
   };
