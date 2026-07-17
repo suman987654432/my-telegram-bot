@@ -298,16 +298,17 @@ const handleChatMember = async (bot, update) => {
     if (new_chat_member && (new_chat_member.status === 'left' || new_chat_member.status === 'kicked')) {
       const telegramId = String(new_chat_member.user.id);
       
-      const user = await User.findOne({ telegramId });
+      const user = await User.findOne({ telegramId }).populate('referredBy');
       if (user) {
         const channel = await Channel.findOne({ chatId: String(chat.id), active: true });
         
-        if (channel) {
-          // Deduct 1 point from the user who left
-          if (user.referrals > 0) {
-            user.referrals -= 1;
+        if (channel && user.referredBy) {
+          // Deduct 1 point from the referrer because their referral left the channel
+          const referrer = await User.findById(user.referredBy._id);
+          if (referrer && referrer.referrals > 0) {
+            referrer.referrals -= 1;
+            await referrer.save();
           }
-          await user.save();
         }
       }
     }
