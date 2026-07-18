@@ -1,6 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const config = require('../config');
-const { handleMessage } = require('./handlers');
+const { handleMessage, handleChatMember } = require('./handlers');
 const { handleCallbackQuery } = require('./callbacks');
 const { handleAdminCommand } = require('./admin');
 const { checkRateLimit } = require('../middleware/rate-limiter');
@@ -13,12 +13,16 @@ if (config.NODE_ENV === 'production' && config.WEBHOOK_URL) {
   bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, { polling: false });
   const webhookPath = `${config.WEBHOOK_URL}/bot${config.TELEGRAM_BOT_TOKEN}`;
 
-  bot.setWebHook(webhookPath)
+  bot.setWebHook(webhookPath, { allowed_updates: ['message', 'callback_query', 'chat_member'] })
     .then(() => logger.info(`🚀 Telegram Webhook configured to route to: ${webhookPath}`))
     .catch((err) => logger.error(`❌ Telegram Webhook initialization error: ${err.message}`));
 } else {
   // Polling mode for local testing
-  bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, { polling: true });
+  bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, { 
+    polling: {
+      params: { allowed_updates: ['message', 'callback_query', 'chat_member'] }
+    }
+  });
 
   bot.deleteWebHook()
     .then(() => logger.info('🚀 Local development polling enabled. Deleted active webhooks.'))
@@ -79,6 +83,10 @@ bot.on('callback_query', async (query) => {
   }
 
   return handleCallbackQuery(bot, query);
+});
+
+bot.on('chat_member', async (update) => {
+  return handleChatMember(bot, update);
 });
 
 bot.on('polling_error', (error) => {

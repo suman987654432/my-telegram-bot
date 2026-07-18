@@ -302,12 +302,12 @@ const handleChatMember = async (bot, update) => {
       if (user) {
         const channel = await Channel.findOne({ chatId: String(chat.id), active: true });
         
-        if (channel && user.referredBy) {
-          // Deduct 1 point from the referrer because their referral left the channel
-          const referrer = await User.findById(user.referredBy._id);
-          if (referrer && referrer.referrals > 0) {
-            referrer.referrals -= 1;
-            await referrer.save();
+        if (channel) {
+          // Deduct 1 point from the user who left as a penalty
+          if (user.referrals > 0) {
+            user.referrals -= 1;
+            await user.save();
+            bot.sendMessage(user.telegramId, `⚠️ *Penalty applied*\n\nYou left a required channel. As a penalty, 1 referral point has been deducted from your balance.`, { parse_mode: 'Markdown' }).catch(() => {});
           }
         }
       }
