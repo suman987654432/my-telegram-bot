@@ -312,12 +312,24 @@ const handleChatMember = async (bot, update) => {
         
         if (channel) {
           logger.info(`[DEBUG] Found matched channel in DB: ${channel.chatId}. Proceeding with penalty.`);
-          // Deduct 1 point from the user who left as a penalty
+          
+          // 1. Deduct 1 point from the referrer (to prevent Multi-App Fake Referral Farming)
+          if (user.referredBy) {
+            const referrer = await User.findById(user.referredBy._id);
+            if (referrer && referrer.referrals > 0) {
+              referrer.referrals -= 1;
+              await referrer.save();
+              bot.sendMessage(referrer.telegramId, `⚠️ *Referral Lost*\n\nOne of your referrals left a required channel. 1 referral point has been deducted from your balance.`, { parse_mode: 'Markdown' }).catch(() => {});
+              logger.info(`[DEBUG] Deducted 1 point from referrer ${referrer.telegramId}.`);
+            }
+          }
+
+          // 2. Deduct 1 point from the user who left as a penalty
           if (user.referrals > 0) {
             user.referrals -= 1;
             await user.save();
-            bot.sendMessage(user.telegramId, `⚠️ *Penalty applied*\n\nYou left a required channel. As a penalty, 1 referral point has been deducted from your balance.`, { parse_mode: 'Markdown' }).catch(() => {});
-            logger.info(`[DEBUG] Deducted 1 point from ${telegramId}.`);
+            bot.sendMessage(user.telegramId, `⚠️ *Penalty applied*\n\nYou left a required channel. As a penalty, 1 referral point has been deducted from your balance.`, { parse_mode: 'Markdown' }).catch(() => { });
+            logger.info(`[DEBUG] Deducted 1 point from user ${telegramId}.`);
           } else {
             logger.info(`[DEBUG] User ${telegramId} has 0 points, cannot deduct.`);
           }
