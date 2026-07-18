@@ -293,23 +293,39 @@ const sendWithdrawCenter = async (bot, chatId, user) => {
  */
 const handleChatMember = async (bot, update) => {
   try {
+    logger.info(`[DEBUG] Received chat_member update for chat: ${update.chat?.id}, user: ${update.new_chat_member?.user?.id}, status: ${update.new_chat_member?.status}`);
     const { chat, new_chat_member } = update;
     
     if (new_chat_member && (new_chat_member.status === 'left' || new_chat_member.status === 'kicked')) {
       const telegramId = String(new_chat_member.user.id);
       
-      const user = await User.findOne({ telegramId }).populate('referredBy');
+      const user = await User.findOne({ telegramId });
       if (user) {
-        const channel = await Channel.findOne({ chatId: String(chat.id), active: true });
+        const usernameQuery = chat.username ? `@${chat.username}` : 'NO_USERNAME_MATCH';
+        const channel = await Channel.findOne({ 
+          $or: [
+            { chatId: String(chat.id) },
+            { chatId: usernameQuery }
+          ],
+          active: true 
+        });
         
         if (channel) {
+          logger.info(`[DEBUG] Found matched channel in DB: ${channel.chatId}. Proceeding with penalty.`);
           // Deduct 1 point from the user who left as a penalty
           if (user.referrals > 0) {
             user.referrals -= 1;
             await user.save();
             bot.sendMessage(user.telegramId, `⚠️ *Penalty applied*\n\nYou left a required channel. As a penalty, 1 referral point has been deducted from your balance.`, { parse_mode: 'Markdown' }).catch(() => {});
+            logger.info(`[DEBUG] Deducted 1 point from ${telegramId}.`);
+          } else {
+            logger.info(`[DEBUG] User ${telegramId} has 0 points, cannot deduct.`);
           }
+        } else {
+          logger.info(`[DEBUG] Channel ${chat.id} (or ${usernameQuery}) NOT found in DB. No penalty applied.`);
         }
+      } else {
+        logger.info(`[DEBUG] User ${telegramId} not found in DB.`);
       }
     }
   } catch (err) {
