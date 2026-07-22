@@ -436,25 +436,25 @@ const sendLeaderboard = async (bot, chatId, messageId = null) => {
       .lean();
 
     if (topUsers.length === 0) {
-      const emptyMsg = '🫙 *No one has any referrals yet.*';
+      const emptyMsg = '🫙 <b>No one has any referrals yet.</b>';
       if (messageId) {
-        return bot.editMessageText(emptyMsg, { chat_id: chatId, message_id: messageId, parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]] } });
+        return bot.editMessageText(emptyMsg, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]] } });
       }
-      return bot.sendMessage(chatId, emptyMsg, { parse_mode: 'Markdown' });
+      return bot.sendMessage(chatId, emptyMsg, { parse_mode: 'HTML' });
     }
 
-    let response = `🏆 *Top 10 Referrals Leaderboard*\n\n`;
+    let response = `🏆 <b>Top 10 Referrals Leaderboard</b>\n\n`;
     const medals = ['🥇', '🥈', '🥉'];
     
     topUsers.forEach((u, index) => {
       const medal = index < 3 ? medals[index] : '🏅';
-      const name = u.firstName || 'Unknown';
-      const username = u.username ? `(@${u.username})` : '';
-      response += `${medal} *${index + 1}.* ${name} ${username}\n      └ 👥 Referrals: *${u.referrals}*\n\n`;
+      const name = (u.firstName || 'Unknown').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const username = u.username ? `(@${u.username.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')})` : '';
+      response += `${medal} <b>${index + 1}.</b> ${name} ${username}\n      └ 👥 Referrals: <b>${u.referrals}</b>\n\n`;
     });
 
     const options = {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [[{ text: '🔙 Back to Dashboard', callback_data: 'admin_back_to_dashboard' }]]
       }
